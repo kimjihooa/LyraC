@@ -36,9 +36,13 @@ AMainCharacter::AMainCharacter()
 	CapsuleHeight = 88.0f;
 	CameraLoc = FVector(0.0f, 0.0f, 0.0f);
 	AimCameraLoc = FVector(100.0f, 70.0f, 0.0f);
-	WalkSpeed = 500.0f;
+	WalkSpeed = 700.0f;
+	WalkAcc = 2048.0f;
 	RotationRate = FRotator(0.0f, 540.0f, 0.0f);
-	SprintSpeed = 900.0f;
+	DashSpeed = 2500.0f;
+	DashAcc = 8192.0f;
+	DashTime = 0.25f;
+	SprintSpeed = 1200.0f;
 	CrouchSpeed = 400.0f;
 	CrouchCameraLoc = FVector(0.0f, 0.0f, -40.0f);
 
@@ -66,13 +70,31 @@ AMainCharacter::AMainCharacter()
 	{
 		LookInput = IA_LOOK.Object;
 	}
+	static ConstructorHelpers::FObjectFinder<UInputAction>IA_AIM
+	(TEXT("/Game/Inputs/Character/IA_Aim.IA_Aim"));
+	if (IA_AIM.Succeeded())
+	{
+		AimInput = IA_AIM.Object;
+	}
 	static ConstructorHelpers::FObjectFinder<UInputAction>IA_JUMP
 	(TEXT("/Game/Inputs/Character/IA_Jump.IA_Jump"));
 	if (IA_JUMP.Succeeded())
 	{
 		JumpInput = IA_JUMP.Object;
 	}
-
+	static ConstructorHelpers::FObjectFinder<UInputAction>IA_CROU
+	(TEXT("/Game/Inputs/Character/IA_Crouch.IA_Crouch"));
+	if (IA_CROU.Succeeded())
+	{
+		CrouInput = IA_CROU.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UInputAction>IA_SPRI
+	(TEXT("/Game/Inputs/Character/IA_Sprint.IA_Sprint"));
+	if (IA_SPRI.Succeeded())
+	{
+		SpriInput = IA_SPRI.Object;
+	}
+	
 	//Animations
 	static ConstructorHelpers::FClassFinder<UAnimInstance>ANIMINS
 	(TEXT("/Game/Assets/Test/Animations/ABP_Character.ABP_Character_C"));
@@ -83,16 +105,10 @@ AMainCharacter::AMainCharacter()
 
 	//Curves
 	static ConstructorHelpers::FObjectFinder<UCurveFloat>SMOOCUR
-	(TEXT("/Game/Blueprints/Characters/C_SmothCurve.C_SmothCurve"));
+	(TEXT("/Game/Assets/Curves/C_Smooth.C_Smooth"));
 	if (SMOOCUR.Succeeded())
 	{
 		SmoothCurve = SMOOCUR.Object;
-	}
-	static ConstructorHelpers::FObjectFinder<UCurveFloat>EXPCUR
-	(TEXT("/Game/Blueprints/Characters/C_ExpCurve.C_ExpCurve"));
-	if (EXPCUR.Succeeded())
-	{
-		ExpCurve = EXPCUR.Object;
 	}
 }
 
@@ -126,10 +142,28 @@ void AMainCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		EnhancedInputComponent->BindAction(MoveInput, ETriggerEvent::Triggered, this, &AMainCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveInput, ETriggerEvent::Completed, this, &AMainCharacter::StopMove);
 		EnhancedInputComponent->BindAction(LookInput, ETriggerEvent::Triggered, this, &AMainCharacter::Look);
+		EnhancedInputComponent->BindAction(AimInput, ETriggerEvent::Started, this, &AMainCharacter::StartAim);
+		EnhancedInputComponent->BindAction(AimInput, ETriggerEvent::Completed, this, &AMainCharacter::StopAim);
 		EnhancedInputComponent->BindAction(JumpInput, ETriggerEvent::Triggered, this, &AMainCharacter::Jump);
+		EnhancedInputComponent->BindAction(CrouInput, ETriggerEvent::Started, this, &AMainCharacter::StartCrouch);
+		EnhancedInputComponent->BindAction(CrouInput, ETriggerEvent::Completed, this, &AMainCharacter::StopCrouch);
+		EnhancedInputComponent->BindAction(SpriInput, ETriggerEvent::Started, this, &AMainCharacter::Dash);
+		EnhancedInputComponent->BindAction(SpriInput, ETriggerEvent::Completed, this, &AMainCharacter::CheckSprintAfterDash);
 	}
-
+}
+const EMoveState AMainCharacter::GetMoveState()
+{
+	return MoveState;
+}
+const EMoveState AMainCharacter::GetPrevMoveState()
+{
+	return PrevState;
+}
+const bool AMainCharacter::GetIsAiming()
+{
+	return bIsAiming;
 }
 
 void AMainCharacter::UpdateCameraLocation(float Alpha)
@@ -137,12 +171,19 @@ void AMainCharacter::UpdateCameraLocation(float Alpha)
 	FVector NewLoc = FMath::Lerp(StartCameraLocation, TargetCameraLocation, Alpha);
 	SpringArm->SocketOffset = NewLoc;
 }
-void AMainCharacter::SetCameraLocation(FVector NewLoc, float Rate)
+void AMainCharacter::SetCameraLocation(const FVector NewLoc, float Rate)
 {
+	if ((NewLoc - SpringArm->SocketOffset).Length() < KINDA_SMALL_NUMBER)
+		return;
+
 	StartCameraLocation = SpringArm->SocketOffset;
 	TargetCameraLocation = NewLoc;
 	CameraTimeline->SetPlayRate(Rate);
 	CameraTimeline->PlayFromStart();
+}
+void AMainCharacter::AddCameraLocation(const FVector NewLoc, float Rate)
+{
+	SetCameraLocation(SpringArm->SocketOffset + NewLoc, Rate);
 }
 
 //Movements
@@ -157,6 +198,11 @@ void AMainCharacter::Move(const FInputActionValue& Value)
 	AddMovementInput(ForwardDir, InputVector.Y);
 	AddMovementInput(RightDir, InputVector.X);
 }
+void AMainCharacter::StopMove()
+{
+	if (MoveState == EMoveState::Sprint)
+		Walk();
+}
 void AMainCharacter::Look(const FInputActionValue& Value)
 {
 	FVector2D InputVector = Value.Get<FVector2D>();
@@ -166,3 +212,97 @@ void AMainCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(-InputVector.Y);
 	}
 }
+void AMainCharacter::StartAim()
+{
+	if (bIsAiming)
+		return;
+
+	if (MoveState == EMoveState::Crouch)
+		SetCameraLocation(AimCameraLoc + CrouchCameraLoc, 2.0f);
+	else
+		SetCameraLocation(AimCameraLoc, 2.0f);
+}
+void AMainCharacter::StopAim()
+{
+	if (!bIsAiming)
+		return;
+
+	if (MoveState == EMoveState::Crouch)
+		SetCameraLocation(CameraLoc + CrouchCameraLoc, 2.0f);
+	else
+		SetCameraLocation(CameraLoc, 2.0f);
+}
+void AMainCharacter::Walk()
+{
+	if (MoveState == EMoveState::Walk)
+		return;
+
+	GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
+	GetCharacterMovement()->MaxAcceleration = WalkAcc;
+	SetCameraLocation(CameraLoc, 2.0f);
+	ChangeMoveState(EMoveState::Walk);
+}
+void AMainCharacter::StartCrouch()
+{
+	if (MoveState == EMoveState::Crouch)
+		return;
+
+	Crouch();
+	if (bIsAiming)
+		SetCameraLocation(AimCameraLoc + CrouchCameraLoc, 2.0f);
+	else
+		SetCameraLocation(CrouchCameraLoc, 2.0f);
+	ChangeMoveState(EMoveState::Crouch);
+}
+void AMainCharacter::StopCrouch()
+{
+	if (MoveState != EMoveState::Crouch)
+		return;
+
+	UnCrouch();
+	if (bIsAiming)
+		SetCameraLocation(AimCameraLoc + CameraLoc, 2.0f);
+	else
+		SetCameraLocation(CameraLoc, 2.0f);
+	ChangeMoveState(EMoveState::Walk);
+}
+void AMainCharacter::Dash()
+{
+	if (MoveState == EMoveState::Dash)
+		return;
+
+	GetCharacterMovement()->MaxWalkSpeed = DashSpeed;
+	GetCharacterMovement()->MaxAcceleration = DashAcc;
+	bShouldSprintAfterDash = true;
+	ChangeMoveState(EMoveState::Dash);
+
+	GetWorld()->GetTimerManager().SetTimer(DashTimer, FTimerDelegate::CreateLambda([this]() {
+		if (bShouldSprintAfterDash)
+			Sprint();
+		else
+			Walk();
+		}), DashTime, false);
+}
+void AMainCharacter::CheckSprintAfterDash()
+{
+	bShouldSprintAfterDash = false;
+}
+void AMainCharacter::Sprint()
+{
+	if (MoveState == EMoveState::Sprint)
+		return;
+
+	GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
+	GetCharacterMovement()->MaxAcceleration = WalkAcc;
+	ChangeMoveState(EMoveState::Sprint);
+}
+
+void AMainCharacter::ChangeMoveState(const EMoveState NewState)
+{
+	if (NewState == MoveState)
+		return;
+
+	PrevState = MoveState;
+	MoveState = NewState;
+}
+

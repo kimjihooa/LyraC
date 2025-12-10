@@ -15,6 +15,15 @@
 #include "EnhancedInputSubsystems.h"
 #include "MainCharacter.generated.h"
 
+UENUM(BlueprintType)
+enum class EMoveState :uint8
+{
+	Walk,
+	Crouch,
+	Dash,
+	Sprint
+};
+
 UCLASS()
 class PROJECTSSA_API AMainCharacter : public ACharacter
 {
@@ -35,6 +44,14 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
+public:
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const EMoveState GetMoveState();
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const EMoveState GetPrevMoveState();
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const bool GetIsAiming();
+
 private:
 	//Components
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -43,14 +60,15 @@ private:
 	UCameraComponent* Camera;
 
 	UCurveFloat* SmoothCurve;
-	UCurveFloat* ExpCurve;
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	UTimelineComponent* CameraTimeline;
 	UFUNCTION()
 	void UpdateCameraLocation(float Alpha);
 	FVector StartCameraLocation = FVector::ZeroVector;
 	FVector TargetCameraLocation = FVector::ZeroVector;
-	void SetCameraLocation(FVector NewLoc, float Rate = 1.0f);
+	UFUNCTION(BlueprintCallable)
+	void SetCameraLocation(const FVector NewLoc, float Rate = 1.0f);
+	void AddCameraLocation(const FVector NewLoc, float Rate = 1.0f);
 
 	//Inputs
 	UPROPERTY(VisibleAnywhere, Category = Input)
@@ -60,12 +78,36 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = Input)
 	UInputAction* LookInput;
 	UPROPERTY(VisibleAnywhere, Category = Input)
+	UInputAction* AimInput;
+	UPROPERTY(VisibleAnywhere, Category = Input)
 	UInputAction* JumpInput;
+	UPROPERTY(VisibleAnywhere, Category = Input)
+	UInputAction* CrouInput;
+	UPROPERTY(VisibleAnywhere, Category = Input)
+	UInputAction* SpriInput;
 
 	//Movements
 	void Move(const FInputActionValue& Value);
+	void StopMove();
 	void Look(const FInputActionValue& Value);
+	void StartAim();
+	void StopAim();
+	void Walk();
+	void StartCrouch();
+	void StopCrouch();
+	void Dash();
+	void Sprint();
 
+	EMoveState MoveState = EMoveState::Walk;
+	EMoveState PrevState = EMoveState::Walk;
+	void ChangeMoveState(const EMoveState NewState);
+
+	FTimerHandle DashTimer;
+	bool bShouldSprintAfterDash = true;
+	void CheckSprintAfterDash();
+
+	bool bIsAiming = false;
+	
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Movement(Walk)")
 	float CapsuleHeight;
@@ -74,13 +116,21 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Movement(Walk)")
 	float WalkSpeed;
 	UPROPERTY(EditDefaultsOnly, Category = "Movement(Walk)")
+	float WalkAcc;
+	UPROPERTY(EditDefaultsOnly, Category = "Movement(Walk)")
 	FRotator RotationRate;
 	UPROPERTY(EditDefaultsOnly, Category = "Movement(Aim)")
 	FVector AimCameraLoc;
-	UPROPERTY(EditDefaultsOnly, Category = "Movement(Sprint)")
-	float SprintSpeed;
 	UPROPERTY(EditDefaultsOnly, Category = "Movement(Crouch)")
 	float CrouchSpeed;
 	UPROPERTY(EditDefaultsOnly, Category = "Movement(Crouch)")
 	FVector CrouchCameraLoc;
+	UPROPERTY(EditDefaultsOnly, Category = "Movement(Dash)")
+	float DashSpeed;
+	UPROPERTY(EditDefaultsOnly, Category = "Movement(Dash)")
+	float DashAcc;
+	UPROPERTY(EditDefaultsOnly, Category = "Movement(Dash)")
+	float DashTime;
+	UPROPERTY(EditDefaultsOnly, Category = "Movement(Sprint)")
+	float SprintSpeed;
 };
