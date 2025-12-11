@@ -40,9 +40,9 @@ AMainCharacter::AMainCharacter()
 	WalkAcc = 2048.0f;
 	RotationRate = FRotator(0.0f, 540.0f, 0.0f);
 	DashSpeed = 2500.0f;
-	DashAcc = 8192.0f;
+	DashAcc = 10000.0f;
 	DashTime = 0.25f;
-	SprintSpeed = 1200.0f;
+	SprintSpeed = 1400.0f;
 	CrouchSpeed = 400.0f;
 	CrouchCameraLoc = FVector(0.0f, 0.0f, -40.0f);
 
@@ -218,9 +218,10 @@ void AMainCharacter::StartAim()
 		return;
 
 	if (MoveState == EMoveState::Crouch)
-		SetCameraLocation(AimCameraLoc + CrouchCameraLoc, 2.0f);
+		SetCameraLocation(CrouchCameraLoc + AimCameraLoc);
 	else
-		SetCameraLocation(AimCameraLoc, 2.0f);
+		SetCameraLocation(AimCameraLoc);
+	bIsAiming = true;
 }
 void AMainCharacter::StopAim()
 {
@@ -228,9 +229,10 @@ void AMainCharacter::StopAim()
 		return;
 
 	if (MoveState == EMoveState::Crouch)
-		SetCameraLocation(CameraLoc + CrouchCameraLoc, 2.0f);
+		SetCameraLocation(CrouchCameraLoc);
 	else
-		SetCameraLocation(CameraLoc, 2.0f);
+		SetCameraLocation(CameraLoc);
+	bIsAiming = false;
 }
 void AMainCharacter::Walk()
 {
@@ -239,7 +241,7 @@ void AMainCharacter::Walk()
 
 	GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
 	GetCharacterMovement()->MaxAcceleration = WalkAcc;
-	SetCameraLocation(CameraLoc, 2.0f);
+	//SetCameraLocation(CameraLoc);
 	ChangeMoveState(EMoveState::Walk);
 }
 void AMainCharacter::StartCrouch()
@@ -249,9 +251,9 @@ void AMainCharacter::StartCrouch()
 
 	Crouch();
 	if (bIsAiming)
-		SetCameraLocation(AimCameraLoc + CrouchCameraLoc, 2.0f);
+		SetCameraLocation(CrouchCameraLoc + AimCameraLoc);
 	else
-		SetCameraLocation(CrouchCameraLoc, 2.0f);
+		SetCameraLocation(CrouchCameraLoc);
 	ChangeMoveState(EMoveState::Crouch);
 }
 void AMainCharacter::StopCrouch()
@@ -261,10 +263,10 @@ void AMainCharacter::StopCrouch()
 
 	UnCrouch();
 	if (bIsAiming)
-		SetCameraLocation(AimCameraLoc + CameraLoc, 2.0f);
+		SetCameraLocation(CameraLoc + AimCameraLoc);
 	else
-		SetCameraLocation(CameraLoc, 2.0f);
-	ChangeMoveState(EMoveState::Walk);
+		SetCameraLocation(CameraLoc);
+	Walk();
 }
 void AMainCharacter::Dash()
 {
