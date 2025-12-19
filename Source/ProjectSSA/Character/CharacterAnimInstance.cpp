@@ -5,13 +5,26 @@
 
 UCharacterAnimInstance::UCharacterAnimInstance()
 {
+	
 }
 
 void UCharacterAnimInstance::NativeInitializeAnimation()
 {
+	if (AActor* OwningActor = GetOwningActor())
+	{
+		//Bind bools with GameplayTag
+		if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwningActor))
+		{
+			FGameplayTag FireTag = FGameplayTag::RequestGameplayTag(FName("State.Combat.Firing"));
+			ASC->RegisterGameplayTagEvent(FireTag, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UCharacterAnimInstance::OnFiringTagChanged);
+			bGameplayTagIsFiring = ASC->HasMatchingGameplayTag(FireTag);
+		}
+	}
 }
 void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 {
+	Super::NativeUpdateAnimation(DeltaTime);
+
 	void UpdateLocationData(float DeltaTime);
 	void UpdateRotationData();
 	void UpdateVelocityData();
@@ -32,6 +45,10 @@ UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
 		return nullptr;
 	UCharacterMovementComponent* CharacterMovement = Cast<UCharacterMovementComponent>(Pawn->GetMovementComponent());
 	return CharacterMovement;
+}
+void UCharacterAnimInstance::OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+	bGameplayTagIsFiring = (NewCount > 0);
 }
 
 void UCharacterAnimInstance::UpdateLocationData(float DeltaTime)

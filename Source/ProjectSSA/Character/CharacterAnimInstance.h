@@ -5,6 +5,9 @@
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameplayEffectTypes.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "KismetAnimationLibrary.h"
 #include "CharacterAnimInstance.generated.h"
@@ -69,6 +72,7 @@ protected:
 	ECardinalDirection SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "UpdateData")
 	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
+
 
 	UPROPERTY(BlueprintReadOnly, Category = "LocationData")
 	float DisplacementSinceLastUpdate = 0.0f;
@@ -153,12 +157,13 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "JumpFallData")
 	float TimeToJumpApex = 0.0f;
 	
-	UPROPERTY(BlueprintReadOnly, Category = "others")
+	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsADS = false;
-	UPROPERTY(BlueprintReadOnly, Category = "others")
+	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsFiring = false;
-	UPROPERTY(BlueprintReadOnly, Category = "others")
+	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsDashing = false;
+	void OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount);
 
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsFirstUpdate = true;

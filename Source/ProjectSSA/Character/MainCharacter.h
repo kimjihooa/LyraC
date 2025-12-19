@@ -13,6 +13,9 @@
 #include "InputActionValue.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "AbilitySystemInterface.h"
+#include "AbilitySystemComponent.h"
+#include "CharacterGameplayTags.h"
 #include "MainCharacter.generated.h"
 
 UENUM(BlueprintType)
@@ -25,7 +28,7 @@ enum class EMoveState :uint8
 };
 
 UCLASS()
-class PROJECTSSA_API AMainCharacter : public ACharacter
+class PROJECTSSA_API AMainCharacter : public ACharacter, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
@@ -43,6 +46,8 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	
 public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -78,6 +83,8 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = Input)
 	UInputAction* LookInput;
 	UPROPERTY(VisibleAnywhere, Category = Input)
+	UInputAction* FireInput;
+	UPROPERTY(VisibleAnywhere, Category = Input)
 	UInputAction* AimInput;
 	UPROPERTY(VisibleAnywhere, Category = Input)
 	UInputAction* JumpInput;
@@ -92,6 +99,8 @@ private:
 	void Look(const FInputActionValue& Value);
 	void StartAim();
 	void StopAim();
+	void StartFire();
+	void StopFire();
 	void Walk();
 	void StartCrouch();
 	void StopCrouch();
@@ -109,6 +118,9 @@ private:
 	bool bIsAiming = false;
 	
 protected:
+	UPROPERTY(EditDefaultsOnly, Category = "GAS")
+	UAbilitySystemComponent* AbilitySystemComponent;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Movement(Walk)")
 	float CapsuleHeight;
 	UPROPERTY(EditDefaultsOnly, Category = "Movement(Walk)")

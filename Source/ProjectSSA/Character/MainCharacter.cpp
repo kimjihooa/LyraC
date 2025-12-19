@@ -31,6 +31,7 @@ AMainCharacter::AMainCharacter()
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
 
 	CameraTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("CameraTimeline"));
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 
 	//Movements
 	CapsuleHeight = 88.0f;
@@ -75,6 +76,12 @@ AMainCharacter::AMainCharacter()
 	if (IA_AIM.Succeeded())
 	{
 		AimInput = IA_AIM.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UInputAction>IA_FIRE
+	(TEXT("/Game/Inputs/Character/IA_Fire.IA_Fire"));
+	if (IA_FIRE.Succeeded())
+	{
+		FireInput = IA_FIRE.Object;
 	}
 	static ConstructorHelpers::FObjectFinder<UInputAction>IA_JUMP
 	(TEXT("/Game/Inputs/Character/IA_Jump.IA_Jump"));
@@ -121,6 +128,9 @@ void AMainCharacter::BeginPlay()
 	UpdateCamera.BindUFunction(this, FName("UpdateCameraLocation"));
 	if (SmoothCurve)
 		CameraTimeline->AddInterpFloat(SmoothCurve, UpdateCamera);
+
+	if (AbilitySystemComponent)
+		AbilitySystemComponent->InitAbilityActorInfo(this, this); //Can be PlayerState, this
 }
 
 // Called every frame
@@ -146,12 +156,18 @@ void AMainCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 		EnhancedInputComponent->BindAction(LookInput, ETriggerEvent::Triggered, this, &AMainCharacter::Look);
 		EnhancedInputComponent->BindAction(AimInput, ETriggerEvent::Started, this, &AMainCharacter::StartAim);
 		EnhancedInputComponent->BindAction(AimInput, ETriggerEvent::Completed, this, &AMainCharacter::StopAim);
+		EnhancedInputComponent->BindAction(FireInput, ETriggerEvent::Started, this, &AMainCharacter::StartFire);
+		EnhancedInputComponent->BindAction(FireInput, ETriggerEvent::Completed, this, &AMainCharacter::StopFire);
 		EnhancedInputComponent->BindAction(JumpInput, ETriggerEvent::Triggered, this, &AMainCharacter::Jump);
 		EnhancedInputComponent->BindAction(CrouInput, ETriggerEvent::Started, this, &AMainCharacter::StartCrouch);
 		EnhancedInputComponent->BindAction(CrouInput, ETriggerEvent::Completed, this, &AMainCharacter::StopCrouch);
 		EnhancedInputComponent->BindAction(SpriInput, ETriggerEvent::Started, this, &AMainCharacter::Dash);
 		EnhancedInputComponent->BindAction(SpriInput, ETriggerEvent::Completed, this, &AMainCharacter::CheckSprintAfterDash);
 	}
+}
+UAbilitySystemComponent* AMainCharacter::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
 }
 const EMoveState AMainCharacter::GetMoveState()
 {
@@ -233,6 +249,18 @@ void AMainCharacter::StopAim()
 	else
 		SetCameraLocation(CameraLoc);
 	bIsAiming = false;
+}
+void AMainCharacter::StartFire()
+{
+	//UE_LOG(LogTemp, Warning, TEXT("Fire Start"));
+	FGameplayTag FireTag = FCharacterGameplayTags::Get().State_Combat_Firing;
+	AbilitySystemComponent->AddLooseGameplayTag(FireTag);
+}
+void AMainCharacter::StopFire()
+{
+	//UE_LOG(LogTemp, Warning, TEXT("Fire Stop"));
+	FGameplayTag FireTag = FCharacterGameplayTags::Get().State_Combat_Firing;
+	AbilitySystemComponent->RemoveLooseGameplayTag(FireTag);
 }
 void AMainCharacter::Walk()
 {
