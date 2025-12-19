@@ -42,6 +42,7 @@ public:
 protected:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaTime) override;
+	virtual void NativeThreadSafeUpdateAnimation(float DeltaTime) override;
 
 	UFUNCTION(BlueprintCallable)
 	UCharacterMovementComponent* GetMovementComponent();
@@ -49,7 +50,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "UpdateData")
 	void UpdateLocationData(float DeltaTime);
 	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateRotationData();
+	void UpdateRotationData(float DeltaTime);
 	UFUNCTION(BlueprintCallable, Category = "UpdateData")
 	void UpdateVelocityData();
 	UFUNCTION(BlueprintCallable, Category = "UpdateData")
@@ -73,7 +74,12 @@ protected:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "UpdateData")
 	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
 
-
+	UPROPERTY(BlueprintReadOnly, Category = "Data")
+	TObjectPtr<AActor> ActorRef;
+	UPROPERTY(BlueprintReadOnly, Category = "Data")
+	TObjectPtr<APawn> PawnRef;
+	UPROPERTY(BlueprintReadOnly, Category = "Data")
+	TObjectPtr<UCharacterMovementComponent> MovementRef;
 	UPROPERTY(BlueprintReadOnly, Category = "LocationData")
 	float DisplacementSinceLastUpdate = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "LocationData")
@@ -156,6 +162,17 @@ protected:
 	float AimPitch = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "JumpFallData")
 	float TimeToJumpApex = 0.0f;
+
+	FVector CachedLocation = FVector::ZeroVector;
+	FRotator CachedRotation = FRotator::ZeroRotator;
+	FVector CachedVelocity = FVector::ZeroVector;
+	FVector CachedAcceleration = FVector::ZeroVector;
+	bool CachedIsMovingOnGround = false;
+	bool CachedIsCroching = false;
+	EMovementMode CachedMovementMode = EMovementMode::MOVE_Walking;
+	bool CachedIsAnyMontagePlaying = false;
+	float CachedAimPitch = 0.0f;
+	float CachedGravityZ = 0.0f;
 	
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsADS = false;
@@ -163,6 +180,14 @@ protected:
 	bool bGameplayTagIsFiring = false;
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsDashing = false;
+	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
+	bool bGameplayTagIsMelee = false;
+
+	FThreadSafeBool SafebGameplayTagIsADS = false;
+	FThreadSafeBool SafebGameplayTagIsFiring = false;
+	FThreadSafeBool SafebGameplayTagIsDashing = false;
+	FThreadSafeBool SafebGameplayTagIsMelee = false;
+
 	void OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount);
 
 	UPROPERTY(BlueprintReadOnly)
@@ -170,4 +195,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	bool bEnableRootYawOffset = true;
 
+
+	//UFUNCTION(BlueprintCallable, meta = BlueprintThreadSafe)
+	//void UpdateIdleState(FAnimationUpdateContext& Context, FAnimNode)
 };

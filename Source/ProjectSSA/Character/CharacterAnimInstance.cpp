@@ -10,32 +10,72 @@ UCharacterAnimInstance::UCharacterAnimInstance()
 
 void UCharacterAnimInstance::NativeInitializeAnimation()
 {
-	if (AActor* OwningActor = GetOwningActor())
+	Super::NativeInitializeAnimation();
+
+	//Initialize Character Data
+	AActor* OwningActor = GetOwningActor();
+	APawn* OwningPawn = TryGetPawnOwner();
+	
+	if (IsValid(OwningActor))
+		ActorRef = OwningActor;
+	if (IsValid(OwningPawn))
 	{
-		//Bind bools with GameplayTag
-		if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwningActor))
-		{
-			FGameplayTag FireTag = FGameplayTag::RequestGameplayTag(FName("State.Combat.Firing"));
-			ASC->RegisterGameplayTagEvent(FireTag, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UCharacterAnimInstance::OnFiringTagChanged);
-			bGameplayTagIsFiring = ASC->HasMatchingGameplayTag(FireTag);
-		}
+		PawnRef = OwningPawn;
+		UCharacterMovementComponent* MovementC = GetMovementComponent();
+		if (IsValid(MovementC))
+			MovementRef = MovementC;
 	}
+
+	//Bind bools with GameplayTag
+	if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ActorRef))
+	{
+		FGameplayTag FireTag = FGameplayTag::RequestGameplayTag(FName("State.Combat.Firing"));
+		ASC->RegisterGameplayTagEvent(FireTag, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UCharacterAnimInstance::OnFiringTagChanged);
+		SafebGameplayTagIsFiring = ASC->HasMatchingGameplayTag(FireTag);
+	}
+	
 }
+//For Data Update
 void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeUpdateAnimation(DeltaTime);
 
-	void UpdateLocationData(float DeltaTime);
-	void UpdateRotationData();
-	void UpdateVelocityData();
-	void UpdateAccelerationData();
-	void UpdateWallDetectionHeuristic();
-	void UpdateCharacterStateData(float DeltaTime);
-	void UpdateBlendWeightData(float DeltaTime);
-	void UpdateRootYawOffset(float DeltaTime);
-	void UpdateAimingData();
-	void UpdateJumpFallData();
+	if (!IsValid(ActorRef) || !IsValid(PawnRef) || !IsValid(MovementRef))
+		return;
+
+	CachedLocation = ActorRef->GetActorLocation();
+	CachedRotation = ActorRef->GetActorRotation();
+	CachedVelocity = PawnRef->GetVelocity();
+	CachedAcceleration = MovementRef->GetCurrentAcceleration();
+	CachedIsMovingOnGround = MovementRef->IsMovingOnGround();
+	CachedIsCroching = MovementRef->IsCrouching();
+	CachedMovementMode = MovementRef->MovementMode;
+	CachedIsAnyMontagePlaying = IsAnyMontagePlaying();
+	CachedAimPitch = PawnRef->GetBaseAimRotation().Pitch;
+	CachedGravityZ = PawnRef->GetMovementComponent()->GetGravityZ();
+}
+//For Data Calculation (Safe multithread)
+void UCharacterAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
+{
+	Super::NativeThreadSafeUpdateAnimation(DeltaTime);
+
+	UpdateLocationData(DeltaTime);
+	UpdateRotationData(DeltaTime);
+	UpdateVelocityData();
+	UpdateAccelerationData();
+	UpdateWallDetectionHeuristic();
+	UpdateCharacterStateData(DeltaTime);
+	UpdateBlendWeightData(DeltaTime);
+	UpdateRootYawOffset(DeltaTime);
+	UpdateAimingData();
+	UpdateJumpFallData();
+
 	bIsFirstUpdate = false;
+}
+
+void UCharacterAnimInstance::OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+	SafebGameplayTagIsFiring = (NewCount > 0);
 }
 
 UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
@@ -46,15 +86,10 @@ UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
 	UCharacterMovementComponent* CharacterMovement = Cast<UCharacterMovementComponent>(Pawn->GetMovementComponent());
 	return CharacterMovement;
 }
-void UCharacterAnimInstance::OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount)
-{
-	bGameplayTagIsFiring = (NewCount > 0);
-}
-
 void UCharacterAnimInstance::UpdateLocationData(float DeltaTime)
 {
-	DisplacementSinceLastUpdate = UKismetMathLibrary::VSizeXY(GetOwningActor()->GetActorLocation() - WorldLocation);
-	WorldLocation = GetOwningActor()->GetActorLocation();
+	DisplacementSinceLastUpdate = UKismetMathLibrary::VSizeXY(CachedLocation - WorldLocation);
+	WorldLocation = CachedLocation;
 	DisplacementSpeed = UKismetMathLibrary::SafeDivide(DisplacementSinceLastUpdate, DeltaTime);
 	if (bIsFirstUpdate)
 	{
@@ -62,11 +97,12 @@ void UCharacterAnimInstance::UpdateLocationData(float DeltaTime)
 		DisplacementSpeed = 0.0f;
 	}
 }
-void UCharacterAnimInstance::UpdateRotationData()
+void UCharacterAnimInstance::UpdateRotationData(float DeltaTime)
 {
-	DisplacementSinceLastUpdate = GetOwningActor()->GetActorRotation().Yaw - WorldRotation.Yaw;
-	YawDeltaSpeed = UKismetMathLibrary::SafeDivide(DisplacementSinceLastUpdate, GetDeltaSeconds());
-	WorldRotation = GetOwningActor()->GetActorRotation();
+	YawDeltaSinceLastUpdate = UKismetMathLibrary::NormalizeAxis(CachedRotation.Yaw - WorldRotation.Yaw);
+	YawDeltaSpeed = UKismetMathLibrary::SafeDivide(YawDeltaSinceLastUpdate, DeltaTime);
+	WorldRotation = CachedRotation;
+	bGameplayTagIsADS = SafebGameplayTagIsADS;
 	AdditiveLeanAngle = (bIsCrouching || bGameplayTagIsADS ? 0.025 : 0.0375) * YawDeltaSpeed;
 	if (bIsFirstUpdate)
 	{
@@ -77,7 +113,7 @@ void UCharacterAnimInstance::UpdateRotationData()
 void UCharacterAnimInstance::UpdateVelocityData()
 {
 	bWasMovingLastUpdate = !LocalVelocity2D.IsZero();
-	WorldVelocity = TryGetPawnOwner()->GetVelocity();
+	WorldVelocity = CachedVelocity;
 	WorldVelocity2D = FVector(WorldVelocity.X, WorldVelocity.Y, 0.0f);
 	LocalVelocity2D = WorldRotation.UnrotateVector(WorldVelocity2D);
 	LocalVelocityDirectionAngle = UKismetAnimationLibrary::CalculateDirection(WorldVelocity2D, WorldRotation);
@@ -88,7 +124,7 @@ void UCharacterAnimInstance::UpdateVelocityData()
 }
 void UCharacterAnimInstance::UpdateAccelerationData()
 {
-	WorldAcceleration2D = FVector(GetMovementComponent()->GetCurrentAcceleration().X, GetMovementComponent()->GetCurrentAcceleration().Y, 0.0f);
+	WorldAcceleration2D = FVector(CachedAcceleration.X, CachedAcceleration.Y, 0.0f);
 	LocalAcceleration2D = WorldRotation.UnrotateVector(WorldAcceleration2D);
 	bHasAcceleration = !UKismetMathLibrary::NearlyEqual_FloatFloat(LocalAcceleration2D.SizeSquared2D(), 0.0f);
 	PivotDirection2D = FMath::Lerp(PivotDirection2D, WorldAcceleration2D.GetSafeNormal(), 0.5f).GetSafeNormal();
@@ -103,16 +139,18 @@ void UCharacterAnimInstance::UpdateWallDetectionHeuristic()
 }
 void UCharacterAnimInstance::UpdateCharacterStateData(float DeltaTime)
 {
-	bIsOnGround = GetMovementComponent()->IsMovingOnGround();
+	bIsOnGround = CachedIsMovingOnGround;
 	bWasCrouchingLastUpdate = bIsCrouching;
-	bIsCrouching = GetMovementComponent()->IsCrouching();
+	bIsCrouching = CachedIsCroching;
 	bCrouchStateChange = bWasCrouchingLastUpdate != bIsCrouching;
+	bGameplayTagIsADS = SafebGameplayTagIsADS;
 	bADSStateChanged = bGameplayTagIsADS != bWasADSLastUpdate;
 	bWasADSLastUpdate = bGameplayTagIsADS;
+	bGameplayTagIsFiring = SafebGameplayTagIsFiring;
 	TimeSinceFiredWeapon = bGameplayTagIsFiring ? 0.0f : TimeSinceFiredWeapon + DeltaTime;
 	bIsJumping = false;
 	bIsFalling = false;
-	if (GetMovementComponent()->MovementMode == EMovementMode::MOVE_Falling)
+	if (CachedMovementMode == EMovementMode::MOVE_Falling)
 	{
 		if (WorldVelocity.Z > 0)
 			bIsJumping = true;
@@ -122,7 +160,7 @@ void UCharacterAnimInstance::UpdateCharacterStateData(float DeltaTime)
 }
 void UCharacterAnimInstance::UpdateBlendWeightData(float DeltaTime)
 {
-	UpperbodyDynamicAdditiveWeight = (IsAnyMontagePlaying() && bIsOnGround) ? 1.0f : (FMath::FInterpTo(UpperbodyDynamicAdditiveWeight, 0.0f, DeltaTime, 6.0f));
+	UpperbodyDynamicAdditiveWeight = (CachedIsAnyMontagePlaying && bIsOnGround) ? 1.0f : (FMath::FInterpTo(UpperbodyDynamicAdditiveWeight, 0.0f, DeltaTime, 6.0f));
 }
 void UCharacterAnimInstance::UpdateRootYawOffset(float DeltaTime)
 {
@@ -134,12 +172,12 @@ void UCharacterAnimInstance::UpdateRootYawOffset(float DeltaTime)
 }
 void UCharacterAnimInstance::UpdateAimingData()
 {
-	AimPitch = UKismetMathLibrary::NormalizeAxis(TryGetPawnOwner()->GetBaseAimRotation().Pitch);
+	AimPitch = UKismetMathLibrary::NormalizeAxis(CachedAimPitch);
 }
 void UCharacterAnimInstance::UpdateJumpFallData()
 {
 	if (bIsJumping)
-		TimeToJumpApex = (0.0f - WorldVelocity.Z) / TryGetPawnOwner()->GetMovementComponent()->GetGravityZ();
+		TimeToJumpApex = UKismetMathLibrary::SafeDivide((0.0f - WorldVelocity.Z), CachedGravityZ);
 	else
 		TimeToJumpApex = 0.0f;
 }
