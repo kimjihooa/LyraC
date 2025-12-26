@@ -78,6 +78,58 @@ void UCharacterAnimInstance::OnFiringTagChanged(const FGameplayTag Tag, int32 Ne
 	SafebGameplayTagIsFiring = (NewCount > 0);
 }
 
+void UCharacterAnimInstance::UpdateIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FAnimationStateResultReference State;
+	bool bSucceeded = true;
+	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
+	if (UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
+		TurnYawCurveValue = 0.0f;
+	else
+	{
+		RootYawOffsetMode = ERootYawOffsetMode::Accumulate;
+		ProcessTurnYawCurve();
+	}
+}
+void UCharacterAnimInstance::SetUpStartState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	StartDirection = LocalVelocityDirection;
+}
+void UCharacterAnimInstance::UpdateStartState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FAnimationStateResultReference State;
+	bool bSucceeded = true;
+	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
+	if (!UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
+		RootYawOffsetMode = ERootYawOffsetMode::Hold;
+}
+void UCharacterAnimInstance::UpdateStopState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FAnimationStateResultReference State;
+	bool bSucceeded = true;
+	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
+	if (!UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
+		RootYawOffsetMode = ERootYawOffsetMode::Accumulate;
+}
+void UCharacterAnimInstance::SetUpPivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	PivotInitialDirection = LocalVelocityDirection;
+}
+void UCharacterAnimInstance::UpdatePivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	if (LastPivotTime > 0.0f)
+		LastPivotTime -= UAnimExecutionContextLibrary::GetDeltaTime(Context);
+}
+void UCharacterAnimInstance::UpdateLocomotionStateMachine(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	EAnimNodeReferenceConversionResult Result;
+	FLinkedAnimGraphReference LinkedGraph = ULinkedAnimGraphLibrary::ConvertToLinkedAnimGraph(Node, Result);
+	UAnimInstance* CurrentInstance = ULinkedAnimGraphLibrary::GetLinkedAnimInstance(LinkedGraph);
+	if (!bIsFirstUpdate)
+		bLinkedLayerChanged = CurrentInstance != LastLinkedLayer;
+	LastLinkedLayer = CurrentInstance;
+}
+
 UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
 {
 	APawn* Pawn = TryGetPawnOwner();
@@ -245,5 +297,21 @@ void UCharacterAnimInstance::SetRootYawOffset(float InRootYawOffset)
 		float Clamped = UKismetMathLibrary::ClampAngle(Normalized, Clamp.X, Clamp.Y);
 		RootYawOffset = Clamp.X == Clamp.Y ? Normalized : Clamped;
 		AimYaw = RootYawOffset * -1.0f;
+	}
+}
+void UCharacterAnimInstance::ProcessTurnYawCurve()
+{
+	float PreviousTurnYawCurveValue = TurnYawCurveValue;
+	float TurnYawWeight = GetCurveValue(FName("TurnYawWeight"));
+	if (UKismetMathLibrary::NearlyEqual_FloatFloat(TurnYawWeight, 0.0f))
+	{
+		TurnYawCurveValue = 0.0f;
+		PreviousTurnYawCurveValue = 0.0f;
+	}
+	else
+	{
+		TurnYawCurveValue = GetCurveValue(FName("RemainingTurnYaw")) / TurnYawWeight;
+		if (PreviousTurnYawCurveValue != 0.0f)
+			SetRootYawOffset(RootYawOffset - (TurnYawCurveValue - PreviousTurnYawCurveValue));
 	}
 }

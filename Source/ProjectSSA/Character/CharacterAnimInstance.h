@@ -4,12 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimExecutionContext.h"
+#include "Animation/AnimNodeReference.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayEffectTypes.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "KismetAnimationLibrary.h"
+#include "AnimationStateMachineLibrary.h"
+#include "AnimExecutionContextLibrary.h"
+#include "LinkedAnimGraphLibrary.h"
 #include "CharacterAnimInstance.generated.h"
 
 /**
@@ -64,11 +69,13 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "UpdateData")
 	void UpdateRootYawOffset(float DeltaTime);
 	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void SetRootYawOffset(float InRootYawOffset);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void ProcessTurnYawCurve();
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
 	void UpdateAimingData();
 	UFUNCTION(BlueprintCallable, Category = "UpdateData")
 	void UpdateJumpFallData();
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void SetRootYawOffset(float InRootYawOffset);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "UpdateData")
 	ECardinalDirection SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "UpdateData")
@@ -156,12 +163,25 @@ protected:
 	FVector2D RootYawOffsetAngleClamp = FVector2D(-120.0f, 100.0f);
 	UPROPERTY(BlueprintReadOnly, Category = "RootYawOffset")
 	FVector2D RootYawOffsetAngleClampCrouched = FVector2D(-90.0f, 80.0f);
+	UPROPERTY(BlueprintReadOnly, Category = "RootYawOffset")
+	float TurnYawCurveValue = 0;
 	UPROPERTY(BlueprintReadOnly, Category = "AimingData")
 	float AimYaw = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "AimingData")
 	float AimPitch = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "JumpFallData")
 	float TimeToJumpApex = 0.0f;
+	UPROPERTY(BlueprintReadOnly, Category = "LocomotionSMData")
+	ECardinalDirection StartDirection = ECardinalDirection::Forward;
+	UPROPERTY(BlueprintReadOnly, Category = "LocomotionSMData")
+	ECardinalDirection PivotInitialDirection = ECardinalDirection::Forward;
+	UPROPERTY(BlueprintReadOnly, Category = "LocomotionSMData")
+	float LastPivotTime = 0.0f;
+	UPROPERTY(BlueprintReadOnly, Category = "LinkedLayerData")
+	UAnimInstance* LastLinkedLayer;
+	UPROPERTY(BlueprintReadOnly, Category = "LinkedLayerData")
+	bool bLinkedLayerChanged;
+
 
 	FVector CachedLocation = FVector::ZeroVector;
 	FRotator CachedRotation = FRotator::ZeroRotator;
@@ -196,6 +216,18 @@ protected:
 	bool bEnableRootYawOffset = true;
 
 
-	//UFUNCTION(BlueprintCallable, meta = BlueprintThreadSafe)
-	//void UpdateIdleState(FAnimationUpdateContext& Context, FAnimNode)
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpStartState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateStartState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateStopState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpPivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdatePivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateLocomotionStateMachine(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 };
