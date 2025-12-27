@@ -283,6 +283,14 @@ ECardinalDirection UCharacterAnimInstance::GetOppositeCardinalDirection(const EC
 	}
 	return ECardinalDirection::Forward;
 }
+bool UCharacterAnimInstance::IsMovingPerpendicularToInitialPivot() const
+{
+	bool PivotFB = (PivotInitialDirection == ECardinalDirection::Forward) || (PivotInitialDirection == ECardinalDirection::Backward);
+	bool VelocityFB = (LocalVelocityDirection == ECardinalDirection::Forward) || (LocalVelocityDirection == ECardinalDirection::Backward);
+	bool PivotLR = (PivotInitialDirection == ECardinalDirection::Left) || (PivotInitialDirection == ECardinalDirection::Right);
+	bool VelocityLR = (LocalVelocityDirection == ECardinalDirection::Left) || (LocalVelocityDirection == ECardinalDirection::Right);
+	return (PivotFB && !VelocityFB) || (PivotLR && !VelocityLR);
+}
 void UCharacterAnimInstance::SetRootYawOffset(float InRootYawOffset)
 {
 	if (!bEnableRootYawOffset)

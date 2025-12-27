@@ -76,10 +76,12 @@ protected:
 	void UpdateAimingData();
 	UFUNCTION(BlueprintCallable, Category = "UpdateData")
 	void UpdateJumpFallData();
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "UpdateData")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
 	ECardinalDirection SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "UpdateData")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
 	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions", meta = (BlueprintThreadSafe))
+	bool IsMovingPerpendicularToInitialPivot() const;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Data")
 	TObjectPtr<AActor> ActorRef;
