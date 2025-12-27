@@ -51,11 +51,13 @@ public:
 	
 public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	const EMoveState GetMoveState();
+	EMoveState GetMoveState() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	const EMoveState GetPrevMoveState();
+	EMoveState GetPrevMoveState() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	const bool GetIsAiming();
+	bool GetIsAiming() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	float GetGroundDistance() const;
 
 private:
 	//Components

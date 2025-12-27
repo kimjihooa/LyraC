@@ -169,17 +169,30 @@ UAbilitySystemComponent* AMainCharacter::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
 }
-const EMoveState AMainCharacter::GetMoveState()
+EMoveState AMainCharacter::GetMoveState() const
 {
 	return MoveState;
 }
-const EMoveState AMainCharacter::GetPrevMoveState()
+EMoveState AMainCharacter::GetPrevMoveState() const
 {
 	return PrevState;
 }
-const bool AMainCharacter::GetIsAiming()
+bool AMainCharacter::GetIsAiming() const
 {
 	return bIsAiming;
+}
+float AMainCharacter::GetGroundDistance() const
+{
+	FVector TraceStart = GetActorLocation();
+	FVector TraceEnd = FVector(TraceStart.X, TraceStart.Y, TraceStart.Z - 100000.0f);
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, Params);
+	if (bHit)
+		return FMath::Max(HitResult.Distance - (GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), 0.0f);
+	else
+		return -1.0f;
 }
 
 void AMainCharacter::UpdateCameraLocation(float Alpha)

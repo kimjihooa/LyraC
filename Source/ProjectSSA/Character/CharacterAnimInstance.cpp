@@ -25,6 +25,8 @@ void UCharacterAnimInstance::NativeInitializeAnimation()
 		if (IsValid(MovementC))
 			MovementRef = MovementC;
 	}
+	if (IsValid(OwningActor))
+		MainCharacterRef = Cast<AMainCharacter>(OwningActor);
 
 	//Bind bools with GameplayTag
 	if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ActorRef))
@@ -53,6 +55,7 @@ void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	CachedIsAnyMontagePlaying = IsAnyMontagePlaying();
 	CachedAimPitch = PawnRef->GetBaseAimRotation().Pitch;
 	CachedGravityZ = PawnRef->GetMovementComponent()->GetGravityZ();
+	GroundDistance = MainCharacterRef->GetGroundDistance();
 }
 //For Data Calculation (Safe multithread)
 void UCharacterAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)

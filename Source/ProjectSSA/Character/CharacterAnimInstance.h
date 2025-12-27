@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MainCharacter.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimExecutionContext.h"
 #include "Animation/AnimNodeReference.h"
@@ -88,6 +89,8 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Data")
 	TObjectPtr<APawn> PawnRef;
 	UPROPERTY(BlueprintReadOnly, Category = "Data")
+	TObjectPtr<AMainCharacter> MainCharacterRef;
+	UPROPERTY(BlueprintReadOnly, Category = "Data")
 	TObjectPtr<UCharacterMovementComponent> MovementRef;
 	UPROPERTY(BlueprintReadOnly, Category = "LocationData")
 	float DisplacementSinceLastUpdate = 0.0f;
@@ -153,6 +156,8 @@ protected:
 	bool bIsJumping = false;
 	UPROPERTY(BlueprintReadOnly, Category = "CharacterStateData")
 	bool bIsFalling = false;
+	UPROPERTY(BlueprintReadOnly, Category = "CharacterStateData")
+	float GroundDistance = -1.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "BlendWeightData")
 	float UpperbodyDynamicAdditiveWeight = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "RootYawOffset")
@@ -180,9 +185,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "LocomotionSMData")
 	float LastPivotTime = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "LinkedLayerData")
-	UAnimInstance* LastLinkedLayer;
+	UAnimInstance* LastLinkedLayer = nullptr;
 	UPROPERTY(BlueprintReadOnly, Category = "LinkedLayerData")
-	bool bLinkedLayerChanged;
+	bool bLinkedLayerChanged = false;
 
 
 	FVector CachedLocation = FVector::ZeroVector;
