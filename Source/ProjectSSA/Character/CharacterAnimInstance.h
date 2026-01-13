@@ -37,13 +37,19 @@ enum class ERootYawOffsetMode : uint8
 	Accumulate
 };
 
+class UItemAnimLayerInstance;
+
 UCLASS()
 class PROJECTSSA_API UCharacterAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
-	
+
 public:
 	UCharacterAnimInstance();
+	friend class UItemAnimLayerInstance;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions", meta = (BlueprintThreadSafe))
+	bool IsMovingPerpendicularToInitialPivot() const;
 
 protected:
 	virtual void NativeInitializeAnimation() override;
@@ -81,8 +87,6 @@ protected:
 	ECardinalDirection SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
 	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions", meta = (BlueprintThreadSafe))
-	bool IsMovingPerpendicularToInitialPivot() const;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Data")
 	TObjectPtr<AActor> ActorRef;
@@ -221,6 +225,10 @@ protected:
 	bool bIsFirstUpdate = true;
 	UPROPERTY(BlueprintReadOnly)
 	bool bEnableRootYawOffset = true;
+	UPROPERTY(BlueprintReadOnly, meta = (BlueprintThreadSafe))
+	bool bEnableControlRig = false;
+	UPROPERTY(BlueprintReadOnly)
+	bool bUseFootPlacement = false;
 
 
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
