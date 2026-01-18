@@ -245,4 +245,7 @@ protected:
 	void UpdatePivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
 	void UpdateLocomotionStateMachine(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+
+	FName CurveName_TurnYawWeight;
+	FName CurveName_RemainingTurnYaw;
 };

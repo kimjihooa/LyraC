@@ -5,7 +5,8 @@
 
 UCharacterAnimInstance::UCharacterAnimInstance()
 {
-	
+	CurveName_TurnYawWeight = TEXT("TurnYawWeight");
+	CurveName_RemainingTurnYaw = TEXT("RemainingTurnYaw");
 }
 
 void UCharacterAnimInstance::NativeInitializeAnimation()
@@ -313,7 +314,8 @@ void UCharacterAnimInstance::SetRootYawOffset(float InRootYawOffset)
 void UCharacterAnimInstance::ProcessTurnYawCurve()
 {
 	float PreviousTurnYawCurveValue = TurnYawCurveValue;
-	float TurnYawWeight = GetCurveValue(FName("TurnYawWeight"));
+	
+	float TurnYawWeight = GetCurveValue(CurveName_TurnYawWeight);
 	if (UKismetMathLibrary::NearlyEqual_FloatFloat(TurnYawWeight, 0.0f))
 	{
 		TurnYawCurveValue = 0.0f;
@@ -321,7 +323,7 @@ void UCharacterAnimInstance::ProcessTurnYawCurve()
 	}
 	else
 	{
-		TurnYawCurveValue = GetCurveValue(FName("RemainingTurnYaw")) / TurnYawWeight;
+		TurnYawCurveValue = GetCurveValue(CurveName_RemainingTurnYaw) / TurnYawWeight;
 		if (PreviousTurnYawCurveValue != 0.0f)
 			SetRootYawOffset(RootYawOffset - (TurnYawCurveValue - PreviousTurnYawCurveValue));
 	}

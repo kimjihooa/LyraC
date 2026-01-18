@@ -35,6 +35,9 @@ class PROJECTSSA_API UItemAnimLayerInstance : public UAnimInstance
 {
 	GENERATED_BODY()
 	
+public:
+	UItemAnimLayerInstance();
+
 protected:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaTime) override;
@@ -87,6 +90,8 @@ protected:
 	TObjectPtr<UAnimSequence> IdleCrouchEntry;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-Idle")
 	TObjectPtr<UAnimSequence> IdleCrouchExit;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-Idle")
+	TArray<UAnimSequence*> IdleBreaks;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-Aim")
 	TObjectPtr<UAnimSequence> AimHipFirePose;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-Aim")
@@ -119,8 +124,6 @@ protected:
 	FAnimStructCardinalDirections ADSStartCardinal;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-Starts")
 	FAnimStructCardinalDirections CrouchStartCardinal;
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-Starts")
-	TArray<UAnimSequence*> IdleBreaks;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-TurnInPlace")
 	TObjectPtr<UAnimSequence> TurnInPlaceLeft;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-TurnInPlace")
@@ -280,4 +283,10 @@ protected:
 	UAnimSequence* GetDesiredPivotSequence(ECardinalDirection InDirection) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
 	UAnimSequence* SelectTurnInPlaceAnimation(float Direction);
+
+	FName CurveValue_ApplyHipFireCurve;
+	FName CurveValue_DisableRHandCurve;
+	FName CurveValue_DisableLHandCurve;
+	FName CurveValue_DisableLegCurve;
+	FName CurveValue_DisableLeftHandPoseOverride;
 };

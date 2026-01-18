@@ -3,6 +3,15 @@
 
 #include "ItemAnimLayerInstance.h"
 
+UItemAnimLayerInstance::UItemAnimLayerInstance()
+{
+	CurveValue_ApplyHipFireCurve = FName("applyHipfireOverridePose ");
+	CurveValue_DisableRHandCurve = FName("DisableRHandIK");
+	CurveValue_DisableLHandCurve = FName("DisableLHandIK");
+	CurveValue_DisableLegCurve = FName("DisableLegIK");
+	CurveValue_DisableLeftHandPoseOverride = FName("DisableLeftHandPoseOverride");
+}
+
 void UItemAnimLayerInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
@@ -57,18 +66,15 @@ void UItemAnimLayerInstance::NativeUpdateAnimation(float DeltaTime)
 	CachedLastUpdateVelocity = MovementComponent->GetLastUpdateVelocity();
 	CachedCardinalDirectionFromAcceleration = MainAnimBPRef->CardinalDirectionFromAcceleration;
 	MainAnimBPRef->LastPivotTime = LastPivotTime;
-	ApplyHipFireCurve = GetCurveValue(FName("applyHipfireOverridePose"));
-	DisableRHandCurve = GetCurveValue(FName("DisableRHandIK"));
-	DisableLHandCurve = GetCurveValue(FName("DisableLHandIK"));
-	DisableLegCurve = GetCurveValue(FName("DisableLegIK"));
-	DisableLeftHandPoseOverride = GetCurveValue(FName("DisableLeftHandPoseOverride"));
+	ApplyHipFireCurve = GetCurveValue(CurveValue_ApplyHipFireCurve);
+	DisableRHandCurve = GetCurveValue(CurveValue_DisableRHandCurve);
+	DisableLHandCurve = GetCurveValue(CurveValue_DisableLHandCurve);
+	DisableLegCurve = GetCurveValue(CurveValue_DisableLegCurve);
+	DisableLeftHandPoseOverride = GetCurveValue(CurveValue_DisableLeftHandPoseOverride);
 }
 void UItemAnimLayerInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeThreadSafeUpdateAnimation(DeltaTime);
-
-	if (MainAnimBPRef == nullptr || MovementComponent == nullptr)
-		return;
 
 	UpdateBlendWeightsData(DeltaTime);
 	UpdateJumpFallData(DeltaTime);
