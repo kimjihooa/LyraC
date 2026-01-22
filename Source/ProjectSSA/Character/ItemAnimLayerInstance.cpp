@@ -83,6 +83,8 @@ void UItemAnimLayerInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 
 UCharacterAnimInstance* UItemAnimLayerInstance::GetMainAnimBP()
 {
+	if (!MainAnimBPRef)
+		return nullptr;
 	return MainAnimBPRef;
 }
 

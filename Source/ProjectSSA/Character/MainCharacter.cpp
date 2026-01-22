@@ -37,14 +37,14 @@ AMainCharacter::AMainCharacter()
 	CapsuleHeight = 88.0f;
 	CameraLoc = FVector(0.0f, 0.0f, 0.0f);
 	AimCameraLoc = FVector(100.0f, 70.0f, 0.0f);
-	WalkSpeed = 700.0f;
-	WalkAcc = 2048.0f;
+	WalkSpeed = 600.0f;
+	WalkAcc = 2400.0f;
 	RotationRate = FRotator(0.0f, 540.0f, 0.0f);
 	DashSpeed = 2500.0f;
 	DashAcc = 10000.0f;
 	DashTime = 0.25f;
 	SprintSpeed = 1400.0f;
-	CrouchSpeed = 400.0f;
+	CrouchSpeed = 300.0f;
 	CrouchCameraLoc = FVector(0.0f, 0.0f, -40.0f);
 
 	GetCapsuleComponent()->SetCapsuleHalfHeight(CapsuleHeight);
