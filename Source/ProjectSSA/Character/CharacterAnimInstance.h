@@ -50,6 +50,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions", meta = (BlueprintThreadSafe))
 	bool IsMovingPerpendicularToInitialPivot() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
+	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
 
 protected:
 	virtual void NativeInitializeAnimation() override;
@@ -85,8 +87,6 @@ protected:
 	void UpdateJumpFallData();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
 	ECardinalDirection SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
-	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
 
 	UPROPERTY(BlueprintReadOnly, Category = "Data")
 	TObjectPtr<AActor> ActorRef;

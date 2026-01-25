@@ -184,7 +184,7 @@ void UCharacterAnimInstance::UpdateAccelerationData()
 	LocalAcceleration2D = WorldRotation.UnrotateVector(WorldAcceleration2D);
 	bHasAcceleration = !UKismetMathLibrary::NearlyEqual_FloatFloat(LocalAcceleration2D.SizeSquared2D(), 0.0f);
 	PivotDirection2D = FMath::Lerp(PivotDirection2D, WorldAcceleration2D.GetSafeNormal(), 0.5f).GetSafeNormal();
-	CardinalDirectionFromAcceleration = SelectCarialDirectionFromAngle(UKismetAnimationLibrary::CalculateDirection(PivotDirection2D, WorldRotation), CardinalDirectionDeadZone, ECardinalDirection::Forward, false);
+	CardinalDirectionFromAcceleration = GetOppositeCardinalDirection(SelectCarialDirectionFromAngle(UKismetAnimationLibrary::CalculateDirection(PivotDirection2D, WorldRotation), CardinalDirectionDeadZone, ECardinalDirection::Forward, false));
 }
 void UCharacterAnimInstance::UpdateWallDetectionHeuristic()
 {

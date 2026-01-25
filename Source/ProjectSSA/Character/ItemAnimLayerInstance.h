@@ -283,6 +283,7 @@ protected:
 	UAnimSequence* GetDesiredPivotSequence(ECardinalDirection InDirection) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
 	UAnimSequence* SelectTurnInPlaceAnimation(float Direction);
+	bool bChangeLastPivotTime = false;
 
 	FName CurveValue_ApplyHipFireCurve;
 	FName CurveValue_DisableRHandCurve;

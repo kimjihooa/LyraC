@@ -65,7 +65,11 @@ void UItemAnimLayerInstance::NativeUpdateAnimation(float DeltaTime)
 	CachedCurrentAcceleration = MovementComponent->GetCurrentAcceleration();
 	CachedLastUpdateVelocity = MovementComponent->GetLastUpdateVelocity();
 	CachedCardinalDirectionFromAcceleration = MainAnimBPRef->CardinalDirectionFromAcceleration;
-	MainAnimBPRef->LastPivotTime = LastPivotTime;
+	if (bChangeLastPivotTime)
+	{
+		MainAnimBPRef->LastPivotTime = LastPivotTime;
+		bChangeLastPivotTime = false;
+	}
 	ApplyHipFireCurve = GetCurveValue(CurveValue_ApplyHipFireCurve);
 	DisableRHandCurve = GetCurveValue(CurveValue_DisableRHandCurve);
 	DisableLHandCurve = GetCurveValue(CurveValue_DisableLHandCurve);
@@ -163,6 +167,7 @@ void UItemAnimLayerInstance::SetUpPivotAnim(const FAnimUpdateContext& Context, c
 	StrideWarpingPivotAlpha = 0.0f;
 	TimeAtPivotStop = 0.0f;
 	LastPivotTime = 0.2f;
+	bChangeLastPivotTime = true;
 }
 void UItemAnimLayerInstance::UpdatePivotAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
@@ -171,6 +176,7 @@ void UItemAnimLayerInstance::UpdatePivotAnim(const FAnimUpdateContext& Context, 
 	float ExplicitTime = USequenceEvaluatorLibrary::GetAccumulatedTime(SequenceEval);
 	if (CachedLastPivotTime > 0.0f)
 	{
+		//UE_LOG(LogTemp, Warning, TEXT("%d"), CachedCardinalDirectionFromAcceleration); //Here
 		UAnimSequence* NewDesiredSeq = GetDesiredPivotSequence(CachedCardinalDirectionFromAcceleration);
 		if (NewDesiredSeq != USequenceEvaluatorLibrary::GetSequence(SequenceEval))
 		{
@@ -465,7 +471,7 @@ void UItemAnimLayerInstance::SetUpIdleTransition(const FAnimUpdateContext& Conte
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
 	USequencePlayerLibrary::SetSequence(SequencePlayer, CachedbIsCrouching ? IdleCrouchEntry : IdleCrouchExit);
-
+	UE_LOG(LogTemp, Warning, TEXT("Transtion"));
 	return;
 }
 void UItemAnimLayerInstance::SetUpIdleBreakAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
