@@ -36,6 +36,7 @@ void UItemAnimLayerInstance::NativeUpdateAnimation(float DeltaTime)
 		return;
 
 	CachedbIsCrouching = MainAnimBPRef->CachedIsCroching;
+	CachedbCrouchStateChange = MainAnimBPRef->bCrouchStateChange;
 	CachedbGameplayTagIsADS = MainAnimBPRef->SafebGameplayTagIsADS;
 	CachedbGameplayTagIsFiring = MainAnimBPRef->SafebGameplayTagIsFiring;
 	CachedbIsOnGround = MainAnimBPRef->CachedIsMovingOnGround;
@@ -471,7 +472,7 @@ void UItemAnimLayerInstance::SetUpIdleTransition(const FAnimUpdateContext& Conte
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
 	USequencePlayerLibrary::SetSequence(SequencePlayer, CachedbIsCrouching ? IdleCrouchEntry : IdleCrouchExit);
-	UE_LOG(LogTemp, Warning, TEXT("Transtion"));
+	//UE_LOG(LogTemp, Warning, TEXT("Transtion"));
 	return;
 }
 void UItemAnimLayerInstance::SetUpIdleBreakAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)

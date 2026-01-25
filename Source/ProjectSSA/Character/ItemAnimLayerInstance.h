@@ -163,6 +163,8 @@ protected:
 	float LandRecoveryAlpha = 0.0f;
 
 	bool CachedbIsCrouching = false;
+	UPROPERTY(BlueprintReadOnly)
+	bool CachedbCrouchStateChange = false;
 	bool CachedbGameplayTagIsADS = false;
 	bool CachedbGameplayTagIsFiring = false;
 	bool CachedbIsOnGround = false;
