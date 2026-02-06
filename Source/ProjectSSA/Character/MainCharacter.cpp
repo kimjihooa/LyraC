@@ -51,6 +51,7 @@ AMainCharacter::AMainCharacter()
 	GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
 	GetCharacterMovement()->MaxWalkSpeedCrouched = CrouchSpeed;
 	GetCharacterMovement()->RotationRate = RotationRate;
+	GetCharacterMovement()->BrakingFrictionFactor = 1.0f;
 
 	//Inputs
 	static ConstructorHelpers::FObjectFinder<UInputMappingContext>DEFAULT_CONTEXT

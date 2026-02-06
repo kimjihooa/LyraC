@@ -7,6 +7,7 @@ UCharacterAnimInstance::UCharacterAnimInstance()
 {
 	CurveName_TurnYawWeight = TEXT("TurnYawWeight");
 	CurveName_RemainingTurnYaw = TEXT("RemainingTurnYaw");
+	CurveName_DisableLegIK = TEXT("DisableLegIK");
 }
 
 void UCharacterAnimInstance::NativeInitializeAnimation()
@@ -57,6 +58,9 @@ void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	CachedAimPitch = PawnRef->GetBaseAimRotation().Pitch;
 	CachedGravityZ = PawnRef->GetMovementComponent()->GetGravityZ();
 	GroundDistance = MainCharacterRef->GetGroundDistance();
+	TurnYawWeightCurve = GetCurveValue(CurveName_TurnYawWeight);
+	RemainingTurnYawCurve = GetCurveValue(CurveName_RemainingTurnYaw);
+	DisableLegIKCurve = GetCurveValue(CurveName_DisableLegIK);
 }
 //For Data Calculation (Safe multithread)
 void UCharacterAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
@@ -132,6 +136,10 @@ void UCharacterAnimInstance::UpdateLocomotionStateMachine(const FAnimUpdateConte
 	if (!bIsFirstUpdate)
 		bLinkedLayerChanged = CurrentInstance != LastLinkedLayer;
 	LastLinkedLayer = CurrentInstance;
+}
+bool UCharacterAnimInstance::ShouldEnableControlRig()
+{
+	return (DisableLegIKCurve <= 0.0f) && !bUseFootPlacement;
 }
 
 UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
@@ -315,7 +323,7 @@ void UCharacterAnimInstance::ProcessTurnYawCurve()
 {
 	float PreviousTurnYawCurveValue = TurnYawCurveValue;
 	
-	float TurnYawWeight = GetCurveValue(CurveName_TurnYawWeight);
+	float TurnYawWeight = TurnYawWeightCurve;
 	if (UKismetMathLibrary::NearlyEqual_FloatFloat(TurnYawWeight, 0.0f))
 	{
 		TurnYawCurveValue = 0.0f;
@@ -323,7 +331,7 @@ void UCharacterAnimInstance::ProcessTurnYawCurve()
 	}
 	else
 	{
-		TurnYawCurveValue = GetCurveValue(CurveName_RemainingTurnYaw) / TurnYawWeight;
+		TurnYawCurveValue = RemainingTurnYawCurve / TurnYawWeight;
 		if (PreviousTurnYawCurveValue != 0.0f)
 			SetRootYawOffset(RootYawOffset - (TurnYawCurveValue - PreviousTurnYawCurveValue));
 	}

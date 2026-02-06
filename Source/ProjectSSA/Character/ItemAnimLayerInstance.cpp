@@ -163,7 +163,7 @@ void UItemAnimLayerInstance::SetUpPivotAnim(const FAnimUpdateContext& Context, c
 	PivotStartingAcceleration = CachedLocalAcceleration;
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	USequenceEvaluatorLibrary::SetSequence(SequenceEval, GetDesiredPivotSequence(CachedCardinalDirectionFromAcceleration));
+	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, GetDesiredPivotSequence(CachedCardinalDirectionFromAcceleration));
 	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, 0.0f);
 	StrideWarpingPivotAlpha = 0.0f;
 	TimeAtPivotStop = 0.0f;
@@ -177,7 +177,6 @@ void UItemAnimLayerInstance::UpdatePivotAnim(const FAnimUpdateContext& Context, 
 	float ExplicitTime = USequenceEvaluatorLibrary::GetAccumulatedTime(SequenceEval);
 	if (CachedLastPivotTime > 0.0f)
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("%d"), CachedCardinalDirectionFromAcceleration); //Here
 		UAnimSequence* NewDesiredSeq = GetDesiredPivotSequence(CachedCardinalDirectionFromAcceleration);
 		if (NewDesiredSeq != USequenceEvaluatorLibrary::GetSequence(SequenceEval))
 		{

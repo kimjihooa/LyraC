@@ -201,25 +201,25 @@ protected:
 	float DisableLegCurve = 0.0f;
 	float DisableLeftHandPoseOverride = 0.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	bool bRaiseWeaponAfterFiringWhenCrouched = false;
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	float RaiseWeaponAfterFiringWeapon = 0.5;
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	float StrideWarpingBlendInStartOffset = 0.15;
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	float StrideWarpingBlendInDurationScaled = 0.2;
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	FVector2D PlayRateClampStartsPivots = FVector2D(0.6f, 5.0f);
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	FVector2D PlayRateClampCycle = FVector2D(0.8f, 1.2f);
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	bool bDisableHandIK = false;
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	bool bEnableLeftHandPoseOverride = false;
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	FName JumpDistanceCurveName = FName("GroundDistance");
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	FName LocomotionDistanceCurveName = FName("Distance");
 
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))

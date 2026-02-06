@@ -52,6 +52,8 @@ public:
 	bool IsMovingPerpendicularToInitialPivot() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
 	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	bool ShouldEnableControlRig();
 
 protected:
 	virtual void NativeInitializeAnimation() override;
@@ -204,7 +206,7 @@ protected:
 	bool CachedIsAnyMontagePlaying = false;
 	float CachedAimPitch = 0.0f;
 	float CachedGravityZ = 0.0f;
-	
+
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsADS = false;
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
@@ -248,4 +250,8 @@ protected:
 
 	FName CurveName_TurnYawWeight;
 	FName CurveName_RemainingTurnYaw;
+	FName CurveName_DisableLegIK;
+	float TurnYawWeightCurve = 0.0f;
+	float RemainingTurnYawCurve = 0.0f;
+	float DisableLegIKCurve = 0.0f;
 };
