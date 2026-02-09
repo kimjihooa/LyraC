@@ -3,13 +3,13 @@
 
 #include "CharacterAnimInstance.h"
 
+//Main Instance Data Update
 UCharacterAnimInstance::UCharacterAnimInstance()
 {
 	CurveName_TurnYawWeight = TEXT("TurnYawWeight");
 	CurveName_RemainingTurnYaw = TEXT("RemainingTurnYaw");
 	CurveName_DisableLegIK = TEXT("DisableLegIK");
 }
-
 void UCharacterAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
@@ -39,9 +39,9 @@ void UCharacterAnimInstance::NativeInitializeAnimation()
 	}
 	
 }
-//For Data Update
 void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 {
+	//For Data Update
 	Super::NativeUpdateAnimation(DeltaTime);
 
 	if (!IsValid(ActorRef) || !IsValid(PawnRef) || !IsValid(MovementRef))
@@ -62,9 +62,9 @@ void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	RemainingTurnYawCurve = GetCurveValue(CurveName_RemainingTurnYaw);
 	DisableLegIKCurve = GetCurveValue(CurveName_DisableLegIK);
 }
-//For Data Calculation (Safe multithread)
 void UCharacterAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 {
+	//For Data Calculation (Safe multithread)
 	Super::NativeThreadSafeUpdateAnimation(DeltaTime);
 
 	UpdateLocationData(DeltaTime);
@@ -81,11 +81,13 @@ void UCharacterAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 	bIsFirstUpdate = false;
 }
 
+//Tag BindingFunctions
 void UCharacterAnimInstance::OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
 	SafebGameplayTagIsFiring = (NewCount > 0);
 }
 
+//Node Binding Functions
 void UCharacterAnimInstance::UpdateIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	FAnimationStateResultReference State;
@@ -142,6 +144,7 @@ bool UCharacterAnimInstance::ShouldEnableControlRig()
 	return (DisableLegIKCurve <= 0.0f) && !bUseFootPlacement;
 }
 
+//Data Update Functions
 UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
 {
 	APawn* Pawn = TryGetPawnOwner();
@@ -246,7 +249,7 @@ void UCharacterAnimInstance::UpdateJumpFallData()
 		TimeToJumpApex = 0.0f;
 }
 
-
+//Helper Functions
 ECardinalDirection UCharacterAnimInstance::SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection)
 {
 	float AbsAngle = FMath::Abs(Angle);

@@ -9,11 +9,69 @@
 #include "AnimCharacterMovementLibrary.h"
 #include "AnimDistanceMatchingLibrary.h"
 #include "CharacterAnimInstance.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "ItemAnimLayerInstance.generated.h"
 
 /**
  * 
  */
+USTRUCT(BlueprintType)
+struct FItemAnimLayerInstanceProxy : public FAnimInstanceProxy
+{
+	GENERATED_BODY()
+
+	FItemAnimLayerInstanceProxy() : FAnimInstanceProxy() {}
+	FItemAnimLayerInstanceProxy(UAnimInstance* Instance) : FAnimInstanceProxy(Instance){}
+
+	virtual void PreUpdate(UAnimInstance* Instance, float DeltaSeconds) override;
+	virtual void Update(float DeltaSeconds) override;
+
+	bool CachedbIsCrouching = false;
+	UPROPERTY(BlueprintReadOnly)
+	bool CachedbCrouchStateChange = false;
+	bool CachedbGameplayTagIsADS = false;
+	bool CachedbGameplayTagIsFiring = false;
+	bool CachedbIsOnGround = false;
+	bool CachedbIsJumping = false;
+	bool CachedbIsFalling = false;
+	bool CachedbHasVelocity = false;
+	bool CachedbHasAcceleration = false;
+	bool CachedbUseFootPlacement = false;
+	bool CachedbUseSeperateBrakingFriction = false;
+	bool CachedbIsRunningIntoWall = false;
+	bool CachedbIsAnyMontagePlaying = false;
+	float CachedDisplacementSpeed = 0.0f;
+	float CachedRootYawOffset = 0.0f;
+	float CachedGroundDistance = 0.0f;
+	float CachedTimeSinceFiredWeapon = 0.0f;
+	float CachedLastPivotTime = 0.0;
+	float CachedGroundFriction = 8.0f;
+	float CachedBrakingFriction = 0.0f;
+	float CachedBrakingFrictionFactor = 2.0f;
+	float CachedBrakingDecelerationWalking = 2048.0f;
+	float CachedDisplacementSinceLastUpdate = 0.0f;
+	FVector CachedWorldLocation = FVector::ZeroVector;
+	FVector CachedLocalVelocity = FVector::ZeroVector;
+	FVector CachedLocalAcceleration = FVector::ZeroVector;
+	FVector CachedCurrentAcceleration = FVector::ZeroVector;
+	FVector CachedLastUpdateVelocity = FVector::ZeroVector;
+	ECardinalDirection CachedCardinalDirectionFromAcceleration = ECardinalDirection::Forward;
+	ECardinalDirection CachedLocalVelocityDirection = ECardinalDirection::Forward;
+	ECardinalDirection CachedLocalVelocityDirectionNoOffset = ECardinalDirection::Forward;
+	float ApplyHipFireCurve = 0.0f;
+	float DisableRHandCurve = 0.0f;
+	float DisableLHandCurve = 0.0f;
+	float DisableLegCurve = 0.0f;
+	float DisableLeftHandPoseOverride = 0.0f;
+	float LastSmoothDistanceTarget = 0.0f;
+
+	FName CurveValue_ApplyHipFireCurve = FName("applyHipfireOverridePose ");
+	FName CurveValue_DisableRHandCurve = FName("DisableRHandIK");
+	FName CurveValue_DisableLHandCurve = FName("DisableLHandIK");
+	FName CurveValue_DisableLegCurve = FName("DisableLegIK");
+	FName CurveValue_DisableLeftHandPoseOverride = FName("DisableLeftHandPoseOverride");
+};
+
 USTRUCT(BlueprintType)
 struct FAnimStructCardinalDirections
 {
@@ -35,6 +93,12 @@ class PROJECTSSA_API UItemAnimLayerInstance : public UAnimInstance
 {
 	GENERATED_BODY()
 	
+protected:
+	UPROPERTY(Transient)
+	FItemAnimLayerInstanceProxy ItemAnimLayerProxy;
+	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
+	virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy) override;
+
 public:
 	UItemAnimLayerInstance();
 
@@ -161,45 +225,11 @@ protected:
 	float TurnInPlaceRecoveryDirection = 0.0f;
 	UPROPERTY(BlueprintReadOnly)
 	float LandRecoveryAlpha = 0.0f;
-
-	bool CachedbIsCrouching = false;
 	UPROPERTY(BlueprintReadOnly)
-	bool CachedbCrouchStateChange = false;
-	bool CachedbGameplayTagIsADS = false;
-	bool CachedbGameplayTagIsFiring = false;
-	bool CachedbIsOnGround = false;
-	bool CachedbIsJumping = false;
-	bool CachedbIsFalling = false;
-	bool CachedbHasVelocity = false;
-	bool CachedbHasAcceleration = false;
-	bool CachedbUseFootPlacement = false;
-	bool CachedbUseSeperateBrakingFriction = false;
-	bool CachedbIsRunningIntoWall = false;
-	bool CachedbIsAnyMontagePlaying = false;
-	float CachedDisplacementSpeed = 0.0f;
-	float CachedRootYawOffset = 0.0f;
-	float CachedGroundDistance = 0.0f;
-	float CachedTimeSinceFiredWeapon = 0.0f;
-	float CachedLastPivotTime = 0.0;
-	float CachedGroundFriction = 8.0f;
-	float CachedBrakingFriction = 0.0f;
-	float CachedBrakingFrictionFactor = 2.0f;
-	float CachedBrakingDecelerationWalking = 2048.0f;
-	float CachedDisplacementSinceLastUpdate = 0.0f;
+	bool bCanPivotRentry = false;
+	UPROPERTY(BlueprintReadOnly)
+	bool CachedCrouchStateChanged = false;
 	float LastPivotTime = 0.0f;
-	FVector CachedWorldLocation = FVector::ZeroVector;
-	FVector CachedLocalVelocity = FVector::ZeroVector;
-	FVector CachedLocalAcceleration = FVector::ZeroVector;
-	FVector CachedCurrentAcceleration = FVector::ZeroVector;
-	FVector CachedLastUpdateVelocity = FVector::ZeroVector;
-	ECardinalDirection CachedCardinalDirectionFromAcceleration = ECardinalDirection::Forward;
-	ECardinalDirection CachedLocalVelocityDirection = ECardinalDirection::Forward;
-	ECardinalDirection CachedLocalVelocityDirectionNoOffset = ECardinalDirection::Forward;
-	float ApplyHipFireCurve = 0.0f;
-	float DisableRHandCurve = 0.0f;
-	float DisableLHandCurve = 0.0f;
-	float DisableLegCurve = 0.0f;
-	float DisableLeftHandPoseOverride = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
 	bool bRaiseWeaponAfterFiringWhenCrouched = false;
@@ -286,10 +316,4 @@ protected:
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
 	UAnimSequence* SelectTurnInPlaceAnimation(float Direction);
 	bool bChangeLastPivotTime = false;
-
-	FName CurveValue_ApplyHipFireCurve;
-	FName CurveValue_DisableRHandCurve;
-	FName CurveValue_DisableLHandCurve;
-	FName CurveValue_DisableLegCurve;
-	FName CurveValue_DisableLeftHandPoseOverride;
 };

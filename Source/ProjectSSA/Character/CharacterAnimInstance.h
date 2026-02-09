@@ -38,6 +38,7 @@ enum class ERootYawOffsetMode : uint8
 };
 
 class UItemAnimLayerInstance;
+struct FItemAnimLayerInstanceProxy;
 
 UCLASS()
 class PROJECTSSA_API UCharacterAnimInstance : public UAnimInstance
@@ -47,6 +48,7 @@ class PROJECTSSA_API UCharacterAnimInstance : public UAnimInstance
 public:
 	UCharacterAnimInstance();
 	friend class UItemAnimLayerInstance;
+	friend struct FItemAnimLayerInstanceProxy;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions", meta = (BlueprintThreadSafe))
 	bool IsMovingPerpendicularToInitialPivot() const;
@@ -188,7 +190,7 @@ protected:
 	ECardinalDirection StartDirection = ECardinalDirection::Forward;
 	UPROPERTY(BlueprintReadOnly, Category = "LocomotionSMData")
 	ECardinalDirection PivotInitialDirection = ECardinalDirection::Forward;
-	UPROPERTY(BlueprintReadOnly, Category = "LocomotionSMData")
+	UPROPERTY(BlueprintReadWrite, Category = "LocomotionSMData")
 	float LastPivotTime = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "LinkedLayerData")
 	UAnimInstance* LastLinkedLayer = nullptr;
