@@ -16,6 +16,7 @@
 #include "AnimationStateMachineLibrary.h"
 #include "AnimExecutionContextLibrary.h"
 #include "LinkedAnimGraphLibrary.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "CharacterAnimInstance.generated.h"
 
 /**
@@ -40,10 +41,39 @@ enum class ERootYawOffsetMode : uint8
 class UItemAnimLayerInstance;
 struct FItemAnimLayerInstanceProxy;
 
+USTRUCT(BlueprintType)
+struct FMainAnimInstanceProxy : public FAnimInstanceProxy
+{
+	GENERATED_BODY()
+
+	FMainAnimInstanceProxy() : FAnimInstanceProxy() {}
+	FMainAnimInstanceProxy(UAnimInstance* Instance) : FAnimInstanceProxy(Instance) {}
+
+	virtual void PreUpdate(UAnimInstance* Instance, float DeltaSeconds) override;
+	virtual void Update(float DeltaSeconds) override;
+
+	FVector CachedLocation = FVector::ZeroVector;
+	FRotator CachedRotation = FRotator::ZeroRotator;
+	FVector CachedVelocity = FVector::ZeroVector;
+	FVector CachedAcceleration = FVector::ZeroVector;
+	bool CachedIsMovingOnGround = false;
+	bool CachedIsCroching = false;
+	EMovementMode CachedMovementMode = EMovementMode::MOVE_Walking;
+	bool CachedIsAnyMontagePlaying = false;
+	float CachedAimPitch = 0.0f;
+	float CachedGravityZ = 0.0f;
+};
+
 UCLASS()
 class PROJECTSSA_API UCharacterAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
+
+protected:
+	UPROPERTY(Transient)
+	FMainAnimInstanceProxy MainAnimInstanceProxy;
+	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
+	virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy) override;
 
 public:
 	UCharacterAnimInstance();
@@ -197,18 +227,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "LinkedLayerData")
 	bool bLinkedLayerChanged = false;
 
-
-	FVector CachedLocation = FVector::ZeroVector;
-	FRotator CachedRotation = FRotator::ZeroRotator;
-	FVector CachedVelocity = FVector::ZeroVector;
-	FVector CachedAcceleration = FVector::ZeroVector;
-	bool CachedIsMovingOnGround = false;
-	bool CachedIsCroching = false;
-	EMovementMode CachedMovementMode = EMovementMode::MOVE_Walking;
-	bool CachedIsAnyMontagePlaying = false;
-	float CachedAimPitch = 0.0f;
-	float CachedGravityZ = 0.0f;
-
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsADS = false;
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
@@ -256,4 +274,10 @@ protected:
 	float TurnYawWeightCurve = 0.0f;
 	float RemainingTurnYawCurve = 0.0f;
 	float DisableLegIKCurve = 0.0f;
+
+public:
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	bool GetIsCroching() { return MainAnimInstanceProxy.CachedIsCroching; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	bool GetIsMovingOnGround() { return MainAnimInstanceProxy.CachedIsMovingOnGround; }
 };

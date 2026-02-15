@@ -30,11 +30,11 @@ void FItemAnimLayerInstanceProxy::PreUpdate(UAnimInstance* Instance, float Delta
 	if (MainAnimBPRef == nullptr || MovementComponent == nullptr)
 		return;
 
-	CachedbIsCrouching = MainAnimBPRef->CachedIsCroching;
+	CachedbIsCrouching = MainAnimBPRef->GetIsCroching();
 	CachedbCrouchStateChange = MainAnimBPRef->bCrouchStateChange;
 	CachedbGameplayTagIsADS = MainAnimBPRef->SafebGameplayTagIsADS;
 	CachedbGameplayTagIsFiring = MainAnimBPRef->SafebGameplayTagIsFiring;
-	CachedbIsOnGround = MainAnimBPRef->CachedIsMovingOnGround;
+	CachedbIsOnGround = MainAnimBPRef->GetIsMovingOnGround();
 	CachedbIsJumping = MainAnimBPRef->bIsJumping;
 	CachedbIsFalling = MainAnimBPRef->bIsFalling;
 	CachedbHasVelocity = MainAnimBPRef->bHasVelocity;
@@ -69,6 +69,7 @@ void FItemAnimLayerInstanceProxy::PreUpdate(UAnimInstance* Instance, float Delta
 }
 void FItemAnimLayerInstanceProxy::Update(float DeltaSeconds)
 {
+	Super::Update(DeltaSeconds);
 }
 
 //Main Instance Data Update
@@ -103,7 +104,6 @@ void UItemAnimLayerInstance::NativeUpdateAnimation(float DeltaTime)
 		MainAnimBPRef->LastPivotTime = LastPivotTime;
 		bChangeLastPivotTime = false;
 	}
-	CachedCrouchStateChanged = ItemAnimLayerProxy.CachedbCrouchStateChange;
 }
 void UItemAnimLayerInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 {

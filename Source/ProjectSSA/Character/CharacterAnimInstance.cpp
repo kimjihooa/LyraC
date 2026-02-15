@@ -3,6 +3,43 @@
 
 #include "CharacterAnimInstance.h"
 
+//Proxy
+void FMainAnimInstanceProxy::PreUpdate(UAnimInstance* Instance, float DeltaSeconds)
+{
+	Super::PreUpdate(Instance, DeltaSeconds);
+
+	AActor* OwningActor = Instance->GetOwningActor();
+	APawn* OwningPawn = Instance->TryGetPawnOwner();
+	UCharacterMovementComponent* CharacterMovementC = nullptr;
+	if (OwningPawn->IsValidLowLevelFast())
+		CharacterMovementC = Cast<UCharacterMovementComponent>(OwningPawn->GetMovementComponent());
+	
+	if (!OwningActor || !OwningPawn || !CharacterMovementC)
+		return;
+
+	CachedLocation = OwningActor->GetActorLocation();
+	CachedRotation = OwningActor->GetActorRotation();
+	CachedVelocity = OwningPawn->GetVelocity();
+	CachedAcceleration = CharacterMovementC->GetCurrentAcceleration();
+	CachedIsMovingOnGround = CharacterMovementC->IsMovingOnGround();
+	CachedIsCroching = CharacterMovementC->IsCrouching();
+	CachedMovementMode = CharacterMovementC->MovementMode;
+	CachedIsAnyMontagePlaying = Instance->IsAnyMontagePlaying();
+	CachedAimPitch = OwningPawn->GetBaseAimRotation().Pitch;
+	CachedGravityZ = OwningPawn->GetMovementComponent()->GetGravityZ();
+}
+void FMainAnimInstanceProxy::Update(float DeltaSeconds)
+{
+	Super::Update(DeltaSeconds);
+}
+FAnimInstanceProxy* UCharacterAnimInstance::CreateAnimInstanceProxy()
+{
+	return &MainAnimInstanceProxy;
+}
+void UCharacterAnimInstance::DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy)
+{
+}
+
 //Main Instance Data Update
 UCharacterAnimInstance::UCharacterAnimInstance()
 {
@@ -47,16 +84,6 @@ void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	if (!IsValid(ActorRef) || !IsValid(PawnRef) || !IsValid(MovementRef))
 		return;
 
-	CachedLocation = ActorRef->GetActorLocation();
-	CachedRotation = ActorRef->GetActorRotation();
-	CachedVelocity = PawnRef->GetVelocity();
-	CachedAcceleration = MovementRef->GetCurrentAcceleration();
-	CachedIsMovingOnGround = MovementRef->IsMovingOnGround();
-	CachedIsCroching = MovementRef->IsCrouching();
-	CachedMovementMode = MovementRef->MovementMode;
-	CachedIsAnyMontagePlaying = IsAnyMontagePlaying();
-	CachedAimPitch = PawnRef->GetBaseAimRotation().Pitch;
-	CachedGravityZ = PawnRef->GetMovementComponent()->GetGravityZ();
 	GroundDistance = MainCharacterRef->GetGroundDistance();
 	TurnYawWeightCurve = GetCurveValue(CurveName_TurnYawWeight);
 	RemainingTurnYawCurve = GetCurveValue(CurveName_RemainingTurnYaw);
@@ -155,8 +182,8 @@ UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
 }
 void UCharacterAnimInstance::UpdateLocationData(float DeltaTime)
 {
-	DisplacementSinceLastUpdate = UKismetMathLibrary::VSizeXY(CachedLocation - WorldLocation);
-	WorldLocation = CachedLocation;
+	DisplacementSinceLastUpdate = UKismetMathLibrary::VSizeXY(MainAnimInstanceProxy.CachedLocation - WorldLocation);
+	WorldLocation = MainAnimInstanceProxy.CachedLocation;
 	DisplacementSpeed = UKismetMathLibrary::SafeDivide(DisplacementSinceLastUpdate, DeltaTime);
 	if (bIsFirstUpdate)
 	{
@@ -166,9 +193,9 @@ void UCharacterAnimInstance::UpdateLocationData(float DeltaTime)
 }
 void UCharacterAnimInstance::UpdateRotationData(float DeltaTime)
 {
-	YawDeltaSinceLastUpdate = UKismetMathLibrary::NormalizeAxis(CachedRotation.Yaw - WorldRotation.Yaw);
+	YawDeltaSinceLastUpdate = UKismetMathLibrary::NormalizeAxis(MainAnimInstanceProxy.CachedRotation.Yaw - WorldRotation.Yaw);
 	YawDeltaSpeed = UKismetMathLibrary::SafeDivide(YawDeltaSinceLastUpdate, DeltaTime);
-	WorldRotation = CachedRotation;
+	WorldRotation = MainAnimInstanceProxy.CachedRotation;
 	bGameplayTagIsADS = SafebGameplayTagIsADS;
 	AdditiveLeanAngle = (bIsCrouching || bGameplayTagIsADS ? 0.025 : 0.0375) * YawDeltaSpeed;
 	if (bIsFirstUpdate)
@@ -180,7 +207,7 @@ void UCharacterAnimInstance::UpdateRotationData(float DeltaTime)
 void UCharacterAnimInstance::UpdateVelocityData()
 {
 	bWasMovingLastUpdate = !LocalVelocity2D.IsZero();
-	WorldVelocity = CachedVelocity;
+	WorldVelocity = MainAnimInstanceProxy.CachedVelocity;
 	WorldVelocity2D = FVector(WorldVelocity.X, WorldVelocity.Y, 0.0f);
 	LocalVelocity2D = WorldRotation.UnrotateVector(WorldVelocity2D);
 	LocalVelocityDirectionAngle = UKismetAnimationLibrary::CalculateDirection(WorldVelocity2D, WorldRotation);
@@ -191,7 +218,7 @@ void UCharacterAnimInstance::UpdateVelocityData()
 }
 void UCharacterAnimInstance::UpdateAccelerationData()
 {
-	WorldAcceleration2D = FVector(CachedAcceleration.X, CachedAcceleration.Y, 0.0f);
+	WorldAcceleration2D = FVector(MainAnimInstanceProxy.CachedAcceleration.X, MainAnimInstanceProxy.CachedAcceleration.Y, 0.0f);
 	LocalAcceleration2D = WorldRotation.UnrotateVector(WorldAcceleration2D);
 	bHasAcceleration = !UKismetMathLibrary::NearlyEqual_FloatFloat(LocalAcceleration2D.SizeSquared2D(), 0.0f);
 	PivotDirection2D = FMath::Lerp(PivotDirection2D, WorldAcceleration2D.GetSafeNormal(), 0.5f).GetSafeNormal();
@@ -206,9 +233,9 @@ void UCharacterAnimInstance::UpdateWallDetectionHeuristic()
 }
 void UCharacterAnimInstance::UpdateCharacterStateData(float DeltaTime)
 {
-	bIsOnGround = CachedIsMovingOnGround;
+	bIsOnGround = MainAnimInstanceProxy.CachedIsMovingOnGround;
 	bWasCrouchingLastUpdate = bIsCrouching;
-	bIsCrouching = CachedIsCroching;
+	bIsCrouching = MainAnimInstanceProxy.CachedIsCroching;
 	bCrouchStateChange = bWasCrouchingLastUpdate != bIsCrouching;
 	bGameplayTagIsADS = SafebGameplayTagIsADS;
 	bADSStateChanged = bGameplayTagIsADS != bWasADSLastUpdate;
@@ -217,7 +244,7 @@ void UCharacterAnimInstance::UpdateCharacterStateData(float DeltaTime)
 	TimeSinceFiredWeapon = bGameplayTagIsFiring ? 0.0f : TimeSinceFiredWeapon + DeltaTime;
 	bIsJumping = false;
 	bIsFalling = false;
-	if (CachedMovementMode == EMovementMode::MOVE_Falling)
+	if (MainAnimInstanceProxy.CachedMovementMode == EMovementMode::MOVE_Falling)
 	{
 		if (WorldVelocity.Z > 0)
 			bIsJumping = true;
@@ -227,7 +254,7 @@ void UCharacterAnimInstance::UpdateCharacterStateData(float DeltaTime)
 }
 void UCharacterAnimInstance::UpdateBlendWeightData(float DeltaTime)
 {
-	UpperbodyDynamicAdditiveWeight = (CachedIsAnyMontagePlaying && bIsOnGround) ? 1.0f : (FMath::FInterpTo(UpperbodyDynamicAdditiveWeight, 0.0f, DeltaTime, 6.0f));
+	UpperbodyDynamicAdditiveWeight = (MainAnimInstanceProxy.CachedIsAnyMontagePlaying && bIsOnGround) ? 1.0f : (FMath::FInterpTo(UpperbodyDynamicAdditiveWeight, 0.0f, DeltaTime, 6.0f));
 }
 void UCharacterAnimInstance::UpdateRootYawOffset(float DeltaTime)
 {
@@ -239,12 +266,12 @@ void UCharacterAnimInstance::UpdateRootYawOffset(float DeltaTime)
 }
 void UCharacterAnimInstance::UpdateAimingData()
 {
-	AimPitch = UKismetMathLibrary::NormalizeAxis(CachedAimPitch);
+	AimPitch = UKismetMathLibrary::NormalizeAxis(MainAnimInstanceProxy.CachedAimPitch);
 }
 void UCharacterAnimInstance::UpdateJumpFallData()
 {
 	if (bIsJumping)
-		TimeToJumpApex = UKismetMathLibrary::SafeDivide((0.0f - WorldVelocity.Z), CachedGravityZ);
+		TimeToJumpApex = UKismetMathLibrary::SafeDivide((0.0f - WorldVelocity.Z), MainAnimInstanceProxy.CachedGravityZ);
 	else
 		TimeToJumpApex = 0.0f;
 }
@@ -339,3 +366,4 @@ void UCharacterAnimInstance::ProcessTurnYawCurve()
 			SetRootYawOffset(RootYawOffset - (TurnYawCurveValue - PreviousTurnYawCurveValue));
 	}
 }
+

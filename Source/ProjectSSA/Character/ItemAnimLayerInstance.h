@@ -27,7 +27,6 @@ struct FItemAnimLayerInstanceProxy : public FAnimInstanceProxy
 	virtual void Update(float DeltaSeconds) override;
 
 	bool CachedbIsCrouching = false;
-	UPROPERTY(BlueprintReadOnly)
 	bool CachedbCrouchStateChange = false;
 	bool CachedbGameplayTagIsADS = false;
 	bool CachedbGameplayTagIsFiring = false;
@@ -63,7 +62,6 @@ struct FItemAnimLayerInstanceProxy : public FAnimInstanceProxy
 	float DisableLHandCurve = 0.0f;
 	float DisableLegCurve = 0.0f;
 	float DisableLeftHandPoseOverride = 0.0f;
-	float LastSmoothDistanceTarget = 0.0f;
 
 	FName CurveValue_ApplyHipFireCurve = FName("applyHipfireOverridePose ");
 	FName CurveValue_DisableRHandCurve = FName("DisableRHandIK");
