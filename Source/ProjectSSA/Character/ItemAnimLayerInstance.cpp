@@ -70,12 +70,81 @@ void FItemAnimLayerInstanceProxy::PreUpdate(UAnimInstance* Instance, float Delta
 void FItemAnimLayerInstanceProxy::Update(float DeltaSeconds)
 {
 	Super::Update(DeltaSeconds);
+
+	UpdateBlendWeightsData(DeltaSeconds);
+	UpdateJumpFallData(DeltaSeconds);
+	UpdateSkelControlData();
 }
 
-//Main Instance Data Update
+//Data Calculation Functions
+void FItemAnimLayerInstanceProxy::UpdateBlendWeightsData(float DeltaTime)
+{
+	if ((!bRaiseWeaponAfterFiringWhenCrouched && CachedbIsCrouching) || ((!CachedbIsCrouching && CachedbGameplayTagIsADS) && CachedbIsOnGround))
+	{
+		HipFireUpperBodyOverrideWeight = 0.0f;
+		AimOffsetBlendWeight = 1.0f;
+	}
+	else
+	{
+		if ((CachedTimeSinceFiredWeapon < RaiseWeaponAfterFiringWeapon) || (CachedbGameplayTagIsADS && (CachedbIsCrouching || !CachedbIsOnGround)) || (ApplyHipFireCurve > 0.0f))
+		{
+			HipFireUpperBodyOverrideWeight = 1.0f;
+			AimOffsetBlendWeight = 1.0f;
+		}
+		else
+		{
+			HipFireUpperBodyOverrideWeight = FMath::FInterpTo(HipFireUpperBodyOverrideWeight, 0.0f, DeltaTime, 1.0f);
+			float NewAimOffsetBlendWeight = (FMath::Abs(CachedRootYawOffset) < 10.0f && CachedbHasAcceleration) ? HipFireUpperBodyOverrideWeight : 1.0f;
+			AimOffsetBlendWeight = FMath::FInterpTo(AimOffsetBlendWeight, NewAimOffsetBlendWeight, DeltaTime, 10.0f);
+		}
+	}
+}
+void FItemAnimLayerInstanceProxy::UpdateJumpFallData(float DeltaTime)
+{
+	if (CachedbIsFalling)
+	{
+		TimeFalling = TimeFalling + DeltaTime;
+	}
+	else
+	{
+		if (CachedbIsJumping)
+		{
+			TimeFalling = 0.0f;
+		}
+	}
+}
+void FItemAnimLayerInstanceProxy::UpdateSkelControlData()
+{
+	float HandIKDIsable = bDisableHandIK ? 0.0f : 1.0f;
+	HandIKRightAlpha = FMath::Clamp(HandIKDIsable - DisableRHandCurve, 0.0f, 1.0f);
+	HandIKLeftAlpha = FMath::Clamp(HandIKDIsable - DisableLHandCurve, 0.0f, 1.0f);
+}
+
+//Anim Instance
 UItemAnimLayerInstance::UItemAnimLayerInstance()
 {
 }
+float UItemAnimLayerInstance::GetHipfireUpperBodyOverrideWeight() const
+{
+	return ItemAnimLayerProxy.HipFireUpperBodyOverrideWeight;
+}
+bool UItemAnimLayerInstance::GetCrouchStateChanged() const
+{
+	return ItemAnimLayerProxy.CachedbCrouchStateChange;
+}
+float UItemAnimLayerInstance::GetHandIKLeftAlpha() const
+{
+	return ItemAnimLayerProxy.HandIKLeftAlpha;
+}
+float UItemAnimLayerInstance::GetHandIKRightAlpha() const
+{
+	return ItemAnimLayerProxy.HandIKRightAlpha;
+}
+float UItemAnimLayerInstance::GetAimOffsetBlendWeight() const
+{
+	return ItemAnimLayerProxy.AimOffsetBlendWeight;
+}
+
 void UItemAnimLayerInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
@@ -91,6 +160,17 @@ void UItemAnimLayerInstance::NativeInitializeAnimation()
 		if (UMovementComponent* Movement = PawnOwner->GetMovementComponent())
 			if (UCharacterMovementComponent* CMC = Cast<UCharacterMovementComponent>(Movement))
 				MovementComponent = CMC;
+
+	ItemAnimLayerProxy.bRaiseWeaponAfterFiringWhenCrouched = bRaiseWeaponAfterFiringWhenCrouched;
+	ItemAnimLayerProxy.RaiseWeaponAfterFiringWeapon = RaiseWeaponAfterFiringWeapon;
+	ItemAnimLayerProxy.StrideWarpingBlendInStartOffset = StrideWarpingBlendInStartOffset;
+	ItemAnimLayerProxy.StrideWarpingBlendInDurationScaled = StrideWarpingBlendInDurationScaled;
+	ItemAnimLayerProxy.PlayRateClampStartsPivots = PlayRateClampStartsPivots;
+	ItemAnimLayerProxy.PlayRateClampCycle = PlayRateClampCycle;
+	ItemAnimLayerProxy.bDisableHandIK = bDisableHandIK;
+	ItemAnimLayerProxy.bEnableLeftHandPoseOverride = bEnableLeftHandPoseOverride;
+	ItemAnimLayerProxy.JumpDistanceCurveName = JumpDistanceCurveName;
+	ItemAnimLayerProxy.LocomotionDistanceCurveName = LocomotionDistanceCurveName;
 }
 void UItemAnimLayerInstance::NativeUpdateAnimation(float DeltaTime)
 {
@@ -108,60 +188,13 @@ void UItemAnimLayerInstance::NativeUpdateAnimation(float DeltaTime)
 void UItemAnimLayerInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeThreadSafeUpdateAnimation(DeltaTime);
-
-	UpdateBlendWeightsData(DeltaTime);
-	UpdateJumpFallData(DeltaTime);
-	UpdateSkelControlData();
 }
 
-//Data Calculation Functions
 UCharacterAnimInstance* UItemAnimLayerInstance::GetMainAnimBP()
 {
 	if (!MainAnimBPRef)
 		return nullptr;
 	return MainAnimBPRef;
-}
-void UItemAnimLayerInstance::UpdateBlendWeightsData(float DeltaTime)
-{
-	if ((!bRaiseWeaponAfterFiringWhenCrouched && ItemAnimLayerProxy.CachedbIsCrouching) || ((!ItemAnimLayerProxy.CachedbIsCrouching && ItemAnimLayerProxy.CachedbGameplayTagIsADS) && ItemAnimLayerProxy.CachedbIsOnGround))
-	{
-		HipFireUpperBodyOverrideWeight = 0.0f;
-		AimOffsetBlendWeight = 1.0f;
-	}
-	else
-	{
-		if ((ItemAnimLayerProxy.CachedTimeSinceFiredWeapon < RaiseWeaponAfterFiringWeapon) || (ItemAnimLayerProxy.CachedbGameplayTagIsADS && (ItemAnimLayerProxy.CachedbIsCrouching || !ItemAnimLayerProxy.CachedbIsOnGround)) || (ItemAnimLayerProxy.ApplyHipFireCurve > 0.0f))
-		{
-			HipFireUpperBodyOverrideWeight = 1.0f;
-			AimOffsetBlendWeight = 1.0f;
-		}
-		else
-		{
-			HipFireUpperBodyOverrideWeight = FMath::FInterpTo(HipFireUpperBodyOverrideWeight, 0.0f, DeltaTime, 1.0f);
-			float NewAimOffsetBlendWeight = (FMath::Abs(ItemAnimLayerProxy.CachedRootYawOffset) < 10.0f && ItemAnimLayerProxy.CachedbHasAcceleration) ? HipFireUpperBodyOverrideWeight : 1.0f;
-			AimOffsetBlendWeight = FMath::FInterpTo(AimOffsetBlendWeight, NewAimOffsetBlendWeight, DeltaTime, 10.0f);
-		}
-	}
-}
-void UItemAnimLayerInstance::UpdateJumpFallData(float DeltaTime)
-{
-	if (ItemAnimLayerProxy.CachedbIsFalling)
-	{
-		TimeFalling = TimeFalling + DeltaTime;
-	}
-	else
-	{
-		if (ItemAnimLayerProxy.CachedbIsJumping)
-		{
-			TimeFalling = 0.0f;
-		}
-	}
-}
-void UItemAnimLayerInstance::UpdateSkelControlData()
-{
-	float HandIKDIsable = bDisableHandIK ? 0.0f : 1.0f;
-	HandIKRightAlpha = FMath::Clamp(HandIKDIsable - ItemAnimLayerProxy.DisableRHandCurve, 0.0f, 1.0f);
-	HandIKLeftAlpha = FMath::Clamp(HandIKDIsable - ItemAnimLayerProxy.DisableLHandCurve, 0.0f, 1.0f);
 }
 
 //Node Binding Functions
@@ -219,7 +252,6 @@ void UItemAnimLayerInstance::UpdatePivotAnim(const FAnimUpdateContext& Context, 
 		float DistanceTarget = UAnimCharacterMovementLibrary::PredictGroundMovementPivotLocation(ItemAnimLayerProxy.CachedCurrentAcceleration, ItemAnimLayerProxy.CachedLastUpdateVelocity, ItemAnimLayerProxy.CachedGroundFriction).Size2D();
 		UAnimDistanceMatchingLibrary::DistanceMatchToTarget(SequenceEval, DistanceTarget, LocomotionDistanceCurveName);
 		TimeAtPivotStop = ExplicitTime;
-		bCanPivotRentry = false;
 		return;
 	}
 	else
@@ -227,7 +259,6 @@ void UItemAnimLayerInstance::UpdatePivotAnim(const FAnimUpdateContext& Context, 
 		StrideWarpingPivotAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - TimeAtPivotStop - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
 		FVector2D Clamp = FVector2D(FMath::Lerp(0.2, PlayRateClampStartsPivots.X, StrideWarpingPivotAlpha), PlayRateClampStartsPivots.Y);
 		UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, ItemAnimLayerProxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
-		bCanPivotRentry = true;
 		return;
 	}
 }
@@ -548,7 +579,7 @@ void UItemAnimLayerInstance::SetUpTurnInPlaceRecoveryState(const FAnimUpdateCont
 }
 void UItemAnimLayerInstance::LandRecoveryStart(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LandRecoveryAlpha = UKismetMathLibrary::MapRangeClamped(TimeFalling, 0.0f, 0.4f, 0.1f, 1.0f) * (ItemAnimLayerProxy.CachedbIsCrouching ? 0.5f : 1.0f);
+	LandRecoveryAlpha = UKismetMathLibrary::MapRangeClamped(ItemAnimLayerProxy.TimeFalling, 0.0f, 0.4f, 0.1f, 1.0f) * (ItemAnimLayerProxy.CachedbIsCrouching ? 0.5f : 1.0f);
 }
 
 //Helper Functions
