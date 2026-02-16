@@ -3,35 +3,15 @@
 
 #include "CharacterAnimInstance.h"
 
-//Proxy
-void FMainAnimInstanceProxy::PreUpdate(UAnimInstance* Instance, float DeltaSeconds)
+void FMainAnimInstanceProxy::PreUpdate(UAnimInstance* Instance, float DeltaTime)
 {
-	Super::PreUpdate(Instance, DeltaSeconds);
+	Super::PreUpdate(Instance, DeltaTime);
 
-	AActor* OwningActor = Instance->GetOwningActor();
-	APawn* OwningPawn = Instance->TryGetPawnOwner();
-	UCharacterMovementComponent* CharacterMovementC = nullptr;
-	if (OwningPawn->IsValidLowLevelFast())
-		CharacterMovementC = Cast<UCharacterMovementComponent>(OwningPawn->GetMovementComponent());
-	
-	if (!OwningActor || !OwningPawn || !CharacterMovementC)
-		return;
+	TurnYawWeightCurve = Instance->GetCurveValue(CurveName_TurnYawWeight);
+	RemainingTurnYawCurve = Instance->GetCurveValue(CurveName_RemainingTurnYaw);
+	DisableLegIKCurve = Instance->GetCurveValue(CurveName_DisableLegIK);
+}
 
-	CachedLocation = OwningActor->GetActorLocation();
-	CachedRotation = OwningActor->GetActorRotation();
-	CachedVelocity = OwningPawn->GetVelocity();
-	CachedAcceleration = CharacterMovementC->GetCurrentAcceleration();
-	CachedIsMovingOnGround = CharacterMovementC->IsMovingOnGround();
-	CachedIsCroching = CharacterMovementC->IsCrouching();
-	CachedMovementMode = CharacterMovementC->MovementMode;
-	CachedIsAnyMontagePlaying = Instance->IsAnyMontagePlaying();
-	CachedAimPitch = OwningPawn->GetBaseAimRotation().Pitch;
-	CachedGravityZ = OwningPawn->GetMovementComponent()->GetGravityZ();
-}
-void FMainAnimInstanceProxy::Update(float DeltaSeconds)
-{
-	Super::Update(DeltaSeconds);
-}
 FAnimInstanceProxy* UCharacterAnimInstance::CreateAnimInstanceProxy()
 {
 	return &MainAnimInstanceProxy;
@@ -40,12 +20,8 @@ void UCharacterAnimInstance::DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy)
 {
 }
 
-//Main Instance Data Update
 UCharacterAnimInstance::UCharacterAnimInstance()
 {
-	CurveName_TurnYawWeight = TEXT("TurnYawWeight");
-	CurveName_RemainingTurnYaw = TEXT("RemainingTurnYaw");
-	CurveName_DisableLegIK = TEXT("DisableLegIK");
 }
 void UCharacterAnimInstance::NativeInitializeAnimation()
 {
@@ -54,7 +30,7 @@ void UCharacterAnimInstance::NativeInitializeAnimation()
 	//Initialize Character Data
 	AActor* OwningActor = GetOwningActor();
 	APawn* OwningPawn = TryGetPawnOwner();
-	
+
 	if (IsValid(OwningActor))
 		ActorRef = OwningActor;
 	if (IsValid(OwningPawn))
@@ -74,24 +50,37 @@ void UCharacterAnimInstance::NativeInitializeAnimation()
 		ASC->RegisterGameplayTagEvent(FireTag, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UCharacterAnimInstance::OnFiringTagChanged);
 		SafebGameplayTagIsFiring = ASC->HasMatchingGameplayTag(FireTag);
 	}
-	
+
 }
+//Get data from outside
 void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 {
-	//For Data Update
 	Super::NativeUpdateAnimation(DeltaTime);
 
 	if (!IsValid(ActorRef) || !IsValid(PawnRef) || !IsValid(MovementRef))
 		return;
 
-	GroundDistance = MainCharacterRef->GetGroundDistance();
-	TurnYawWeightCurve = GetCurveValue(CurveName_TurnYawWeight);
-	RemainingTurnYawCurve = GetCurveValue(CurveName_RemainingTurnYaw);
-	DisableLegIKCurve = GetCurveValue(CurveName_DisableLegIK);
+	MainAnimInstanceProxy.CachedLocation = ActorRef->GetActorLocation();
+	MainAnimInstanceProxy.CachedRotation = ActorRef->GetActorRotation();
+	MainAnimInstanceProxy.CachedVelocity = PawnRef->GetVelocity();
+	MainAnimInstanceProxy.CachedAcceleration = MovementRef->GetCurrentAcceleration();
+	MainAnimInstanceProxy.CachedIsMovingOnGround = MovementRef->IsMovingOnGround();
+	MainAnimInstanceProxy.CachedIsCroching = MovementRef->IsCrouching();
+	MainAnimInstanceProxy.CachedMovementMode = MovementRef->MovementMode;
+	MainAnimInstanceProxy.CachedIsAnyMontagePlaying = IsAnyMontagePlaying();
+	MainAnimInstanceProxy.CachedAimPitch = PawnRef->GetBaseAimRotation().Pitch;
+	MainAnimInstanceProxy.CachedGravityZ = PawnRef->GetMovementComponent()->GetGravityZ();
+	MainAnimInstanceProxy.GroundDistance = MainCharacterRef->GetGroundDistance();
+
+	//Gameplay tags
+	MainAnimInstanceProxy.bGameplayTagIsADS = SafebGameplayTagIsADS;
+	MainAnimInstanceProxy.bGameplayTagIsFiring = SafebGameplayTagIsFiring;
+	MainAnimInstanceProxy.bGameplayTagIsDashing = SafebGameplayTagIsDashing;
+	MainAnimInstanceProxy.bGameplayTagIsMelee = SafebGameplayTagIsMelee;
 }
+//Calculate data
 void UCharacterAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 {
-	//For Data Calculation (Safe multithread)
 	Super::NativeThreadSafeUpdateAnimation(DeltaTime);
 
 	UpdateLocationData(DeltaTime);
@@ -108,70 +97,7 @@ void UCharacterAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 	bIsFirstUpdate = false;
 }
 
-//Tag BindingFunctions
-void UCharacterAnimInstance::OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount)
-{
-	SafebGameplayTagIsFiring = (NewCount > 0);
-}
-
-//Node Binding Functions
-void UCharacterAnimInstance::UpdateIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
-{
-	FAnimationStateResultReference State;
-	bool bSucceeded = true;
-	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
-	if (UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
-		TurnYawCurveValue = 0.0f;
-	else
-	{
-		RootYawOffsetMode = ERootYawOffsetMode::Accumulate;
-		ProcessTurnYawCurve();
-	}
-}
-void UCharacterAnimInstance::SetUpStartState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
-{
-	StartDirection = LocalVelocityDirection;
-}
-void UCharacterAnimInstance::UpdateStartState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
-{
-	FAnimationStateResultReference State;
-	bool bSucceeded = true;
-	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
-	if (!UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
-		RootYawOffsetMode = ERootYawOffsetMode::Hold;
-}
-void UCharacterAnimInstance::UpdateStopState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
-{
-	FAnimationStateResultReference State;
-	bool bSucceeded = true;
-	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
-	if (!UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
-		RootYawOffsetMode = ERootYawOffsetMode::Accumulate;
-}
-void UCharacterAnimInstance::SetUpPivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
-{
-	PivotInitialDirection = LocalVelocityDirection;
-}
-void UCharacterAnimInstance::UpdatePivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
-{
-	if (LastPivotTime > 0.0f)
-		LastPivotTime -= UAnimExecutionContextLibrary::GetDeltaTime(Context);
-}
-void UCharacterAnimInstance::UpdateLocomotionStateMachine(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
-{
-	EAnimNodeReferenceConversionResult Result;
-	FLinkedAnimGraphReference LinkedGraph = ULinkedAnimGraphLibrary::ConvertToLinkedAnimGraph(Node, Result);
-	UAnimInstance* CurrentInstance = ULinkedAnimGraphLibrary::GetLinkedAnimInstance(LinkedGraph);
-	if (!bIsFirstUpdate)
-		bLinkedLayerChanged = CurrentInstance != LastLinkedLayer;
-	LastLinkedLayer = CurrentInstance;
-}
-bool UCharacterAnimInstance::ShouldEnableControlRig()
-{
-	return (DisableLegIKCurve <= 0.0f) && !bUseFootPlacement;
-}
-
-//Data Update Functions
+//Data update functions
 UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
 {
 	APawn* Pawn = TryGetPawnOwner();
@@ -182,101 +108,169 @@ UCharacterMovementComponent* UCharacterAnimInstance::GetMovementComponent()
 }
 void UCharacterAnimInstance::UpdateLocationData(float DeltaTime)
 {
-	DisplacementSinceLastUpdate = UKismetMathLibrary::VSizeXY(MainAnimInstanceProxy.CachedLocation - WorldLocation);
-	WorldLocation = MainAnimInstanceProxy.CachedLocation;
-	DisplacementSpeed = UKismetMathLibrary::SafeDivide(DisplacementSinceLastUpdate, DeltaTime);
+	MainAnimInstanceProxy.DisplacementSinceLastUpdate = UKismetMathLibrary::VSizeXY(MainAnimInstanceProxy.CachedLocation - MainAnimInstanceProxy.WorldLocation);
+	MainAnimInstanceProxy.WorldLocation = MainAnimInstanceProxy.CachedLocation;
+	MainAnimInstanceProxy.DisplacementSpeed = UKismetMathLibrary::SafeDivide(MainAnimInstanceProxy.DisplacementSinceLastUpdate, DeltaTime);
 	if (bIsFirstUpdate)
 	{
-		DisplacementSinceLastUpdate = 0.0f;
-		DisplacementSpeed = 0.0f;
+		MainAnimInstanceProxy.DisplacementSinceLastUpdate = 0.0f;
+		MainAnimInstanceProxy.DisplacementSpeed = 0.0f;
 	}
 }
 void UCharacterAnimInstance::UpdateRotationData(float DeltaTime)
 {
-	YawDeltaSinceLastUpdate = UKismetMathLibrary::NormalizeAxis(MainAnimInstanceProxy.CachedRotation.Yaw - WorldRotation.Yaw);
-	YawDeltaSpeed = UKismetMathLibrary::SafeDivide(YawDeltaSinceLastUpdate, DeltaTime);
-	WorldRotation = MainAnimInstanceProxy.CachedRotation;
-	bGameplayTagIsADS = SafebGameplayTagIsADS;
-	AdditiveLeanAngle = (bIsCrouching || bGameplayTagIsADS ? 0.025 : 0.0375) * YawDeltaSpeed;
+	MainAnimInstanceProxy.YawDeltaSinceLastUpdate = UKismetMathLibrary::NormalizeAxis(MainAnimInstanceProxy.CachedRotation.Yaw - MainAnimInstanceProxy.WorldRotation.Yaw);
+	MainAnimInstanceProxy.YawDeltaSpeed = UKismetMathLibrary::SafeDivide(MainAnimInstanceProxy.YawDeltaSinceLastUpdate, DeltaTime);
+	MainAnimInstanceProxy.WorldRotation = MainAnimInstanceProxy.CachedRotation;
+	MainAnimInstanceProxy.AdditiveLeanAngle = (MainAnimInstanceProxy.bIsCrouching || MainAnimInstanceProxy.bGameplayTagIsADS ? 0.025 : 0.0375) * MainAnimInstanceProxy.YawDeltaSpeed;
 	if (bIsFirstUpdate)
 	{
-		YawDeltaSinceLastUpdate = 0.0f;
-		AdditiveLeanAngle = 0.0f;
+		MainAnimInstanceProxy.YawDeltaSinceLastUpdate = 0.0f;
+		MainAnimInstanceProxy.AdditiveLeanAngle = 0.0f;
 	}
 }
 void UCharacterAnimInstance::UpdateVelocityData()
 {
-	bWasMovingLastUpdate = !LocalVelocity2D.IsZero();
-	WorldVelocity = MainAnimInstanceProxy.CachedVelocity;
-	WorldVelocity2D = FVector(WorldVelocity.X, WorldVelocity.Y, 0.0f);
-	LocalVelocity2D = WorldRotation.UnrotateVector(WorldVelocity2D);
-	LocalVelocityDirectionAngle = UKismetAnimationLibrary::CalculateDirection(WorldVelocity2D, WorldRotation);
-	LocalVelocityDirectionAngleWithOffset = LocalVelocityDirectionAngle - RootYawOffset;
-	LocalVelocityDirection = SelectCarialDirectionFromAngle(LocalVelocityDirectionAngleWithOffset, CardinalDirectionDeadZone, LocalVelocityDirection, bWasMovingLastUpdate);
-	LocalVelocityDirectionNoOffset = SelectCarialDirectionFromAngle(LocalVelocityDirectionAngle, CardinalDirectionDeadZone, LocalVelocityDirectionNoOffset, bWasMovingLastUpdate);
-	bHasVelocity = !UKismetMathLibrary::NearlyEqual_FloatFloat(LocalVelocity2D.SizeSquared2D(), 0.0f);
+	MainAnimInstanceProxy.bWasMovingLastUpdate = !MainAnimInstanceProxy.LocalVelocity2D.IsZero();
+	MainAnimInstanceProxy.WorldVelocity = MainAnimInstanceProxy.CachedVelocity;
+	MainAnimInstanceProxy.WorldVelocity2D = FVector(MainAnimInstanceProxy.WorldVelocity.X, MainAnimInstanceProxy.WorldVelocity.Y, 0.0f);
+	MainAnimInstanceProxy.LocalVelocity2D = MainAnimInstanceProxy.WorldRotation.UnrotateVector(MainAnimInstanceProxy.WorldVelocity2D);
+	MainAnimInstanceProxy.LocalVelocityDirectionAngle = UKismetAnimationLibrary::CalculateDirection(MainAnimInstanceProxy.WorldVelocity2D, MainAnimInstanceProxy.WorldRotation);
+	MainAnimInstanceProxy.LocalVelocityDirectionAngleWithOffset = MainAnimInstanceProxy.LocalVelocityDirectionAngle - MainAnimInstanceProxy.RootYawOffset;
+	MainAnimInstanceProxy.LocalVelocityDirection = SelectCarialDirectionFromAngle(MainAnimInstanceProxy.LocalVelocityDirectionAngleWithOffset, MainAnimInstanceProxy.CardinalDirectionDeadZone, MainAnimInstanceProxy.LocalVelocityDirection, MainAnimInstanceProxy.bWasMovingLastUpdate);
+	MainAnimInstanceProxy.LocalVelocityDirectionNoOffset = SelectCarialDirectionFromAngle(MainAnimInstanceProxy.LocalVelocityDirectionAngle, MainAnimInstanceProxy.CardinalDirectionDeadZone, MainAnimInstanceProxy.LocalVelocityDirectionNoOffset, MainAnimInstanceProxy.bWasMovingLastUpdate);
+	MainAnimInstanceProxy.bHasVelocity = !UKismetMathLibrary::NearlyEqual_FloatFloat(MainAnimInstanceProxy.LocalVelocity2D.SizeSquared2D(), 0.0f);
 }
 void UCharacterAnimInstance::UpdateAccelerationData()
 {
-	WorldAcceleration2D = FVector(MainAnimInstanceProxy.CachedAcceleration.X, MainAnimInstanceProxy.CachedAcceleration.Y, 0.0f);
-	LocalAcceleration2D = WorldRotation.UnrotateVector(WorldAcceleration2D);
-	bHasAcceleration = !UKismetMathLibrary::NearlyEqual_FloatFloat(LocalAcceleration2D.SizeSquared2D(), 0.0f);
-	PivotDirection2D = FMath::Lerp(PivotDirection2D, WorldAcceleration2D.GetSafeNormal(), 0.5f).GetSafeNormal();
-	CardinalDirectionFromAcceleration = GetOppositeCardinalDirection(SelectCarialDirectionFromAngle(UKismetAnimationLibrary::CalculateDirection(PivotDirection2D, WorldRotation), CardinalDirectionDeadZone, ECardinalDirection::Forward, false));
+	MainAnimInstanceProxy.WorldAcceleration2D = FVector(MainAnimInstanceProxy.CachedAcceleration.X, MainAnimInstanceProxy.CachedAcceleration.Y, 0.0f);
+	MainAnimInstanceProxy.LocalAcceleration2D = MainAnimInstanceProxy.WorldRotation.UnrotateVector(MainAnimInstanceProxy.WorldAcceleration2D);
+	MainAnimInstanceProxy.bHasAcceleration = !UKismetMathLibrary::NearlyEqual_FloatFloat(MainAnimInstanceProxy.LocalAcceleration2D.SizeSquared2D(), 0.0f);
+	MainAnimInstanceProxy.PivotDirection2D = FMath::Lerp(MainAnimInstanceProxy.PivotDirection2D, MainAnimInstanceProxy.WorldAcceleration2D.GetSafeNormal(), 0.5f).GetSafeNormal();
+	MainAnimInstanceProxy.CardinalDirectionFromAcceleration = GetOppositeCardinalDirection(SelectCarialDirectionFromAngle(UKismetAnimationLibrary::CalculateDirection(MainAnimInstanceProxy.PivotDirection2D, MainAnimInstanceProxy.WorldRotation), MainAnimInstanceProxy.CardinalDirectionDeadZone, ECardinalDirection::Forward, false));
 }
 void UCharacterAnimInstance::UpdateWallDetectionHeuristic()
 {
-	bool AccLen = LocalAcceleration2D.Size2D() > 0.1f;
-	bool VelLen = LocalVelocity2D.Size2D() < 200.0f;
-	bool Dot = UKismetMathLibrary::InRange_FloatFloat(FVector::DotProduct(LocalAcceleration2D.GetSafeNormal(), LocalVelocity2D.GetSafeNormal()), -0.6f, 0.6f, true, true);
-	bIsRunningIntoWall = AccLen && VelLen && Dot;
+	bool AccLen = MainAnimInstanceProxy.LocalAcceleration2D.Size2D() > 0.1f;
+	bool VelLen = MainAnimInstanceProxy.LocalVelocity2D.Size2D() < 200.0f;
+	bool Dot = UKismetMathLibrary::InRange_FloatFloat(FVector::DotProduct(MainAnimInstanceProxy.LocalAcceleration2D.GetSafeNormal(), MainAnimInstanceProxy.LocalVelocity2D.GetSafeNormal()), -0.6f, 0.6f, true, true);
+	MainAnimInstanceProxy.bIsRunningIntoWall = AccLen && VelLen && Dot;
 }
 void UCharacterAnimInstance::UpdateCharacterStateData(float DeltaTime)
 {
-	bIsOnGround = MainAnimInstanceProxy.CachedIsMovingOnGround;
-	bWasCrouchingLastUpdate = bIsCrouching;
-	bIsCrouching = MainAnimInstanceProxy.CachedIsCroching;
-	bCrouchStateChange = bWasCrouchingLastUpdate != bIsCrouching;
-	bGameplayTagIsADS = SafebGameplayTagIsADS;
-	bADSStateChanged = bGameplayTagIsADS != bWasADSLastUpdate;
-	bWasADSLastUpdate = bGameplayTagIsADS;
-	bGameplayTagIsFiring = SafebGameplayTagIsFiring;
-	TimeSinceFiredWeapon = bGameplayTagIsFiring ? 0.0f : TimeSinceFiredWeapon + DeltaTime;
-	bIsJumping = false;
-	bIsFalling = false;
+	MainAnimInstanceProxy.bIsOnGround = MainAnimInstanceProxy.CachedIsMovingOnGround;
+	MainAnimInstanceProxy.bWasCrouchingLastUpdate = MainAnimInstanceProxy.bIsCrouching;
+	MainAnimInstanceProxy.bIsCrouching = MainAnimInstanceProxy.CachedIsCroching;
+	MainAnimInstanceProxy.bCrouchStateChange = MainAnimInstanceProxy.bWasCrouchingLastUpdate != MainAnimInstanceProxy.bIsCrouching;
+	MainAnimInstanceProxy.bADSStateChanged = MainAnimInstanceProxy.bGameplayTagIsADS != MainAnimInstanceProxy.bWasADSLastUpdate;
+	MainAnimInstanceProxy.bWasADSLastUpdate = MainAnimInstanceProxy.bGameplayTagIsADS;
+	MainAnimInstanceProxy.TimeSinceFiredWeapon = MainAnimInstanceProxy.bGameplayTagIsFiring ? 0.0f : MainAnimInstanceProxy.TimeSinceFiredWeapon + DeltaTime;
+	MainAnimInstanceProxy.bIsJumping = false;
+	MainAnimInstanceProxy.bIsFalling = false;
 	if (MainAnimInstanceProxy.CachedMovementMode == EMovementMode::MOVE_Falling)
 	{
-		if (WorldVelocity.Z > 0)
-			bIsJumping = true;
+		if (MainAnimInstanceProxy.WorldVelocity.Z > 0)
+			MainAnimInstanceProxy.bIsJumping = true;
 		else
-			bIsFalling = true;
+			MainAnimInstanceProxy.bIsFalling = true;
 	}
 }
 void UCharacterAnimInstance::UpdateBlendWeightData(float DeltaTime)
 {
-	UpperbodyDynamicAdditiveWeight = (MainAnimInstanceProxy.CachedIsAnyMontagePlaying && bIsOnGround) ? 1.0f : (FMath::FInterpTo(UpperbodyDynamicAdditiveWeight, 0.0f, DeltaTime, 6.0f));
+	MainAnimInstanceProxy.UpperbodyDynamicAdditiveWeight = (MainAnimInstanceProxy.CachedIsAnyMontagePlaying && MainAnimInstanceProxy.bIsOnGround) ? 1.0f : (FMath::FInterpTo(MainAnimInstanceProxy.UpperbodyDynamicAdditiveWeight, 0.0f, DeltaTime, 6.0f));
 }
 void UCharacterAnimInstance::UpdateRootYawOffset(float DeltaTime)
 {
-	if (RootYawOffsetMode == ERootYawOffsetMode::Accumulate)
-		SetRootYawOffset(RootYawOffset - YawDeltaSinceLastUpdate);
-	if (RootYawOffsetMode == ERootYawOffsetMode::BlendOut)
-		SetRootYawOffset(UKismetMathLibrary::FloatSpringInterp(RootYawOffset, 0.0f, RootYawOffsetSpringState, 80.0f, 1.0f, DeltaTime, 1.0f, 0.5f));
-	RootYawOffsetMode = ERootYawOffsetMode::BlendOut;
+	if (MainAnimInstanceProxy.RootYawOffsetMode == ERootYawOffsetMode::Accumulate)
+		SetRootYawOffset(MainAnimInstanceProxy.RootYawOffset - MainAnimInstanceProxy.YawDeltaSinceLastUpdate);
+	if (MainAnimInstanceProxy.RootYawOffsetMode == ERootYawOffsetMode::BlendOut)
+		SetRootYawOffset(UKismetMathLibrary::FloatSpringInterp(MainAnimInstanceProxy.RootYawOffset, 0.0f, MainAnimInstanceProxy.RootYawOffsetSpringState, 80.0f, 1.0f, DeltaTime, 1.0f, 0.5f));
+	MainAnimInstanceProxy.RootYawOffsetMode = ERootYawOffsetMode::BlendOut;
 }
 void UCharacterAnimInstance::UpdateAimingData()
 {
-	AimPitch = UKismetMathLibrary::NormalizeAxis(MainAnimInstanceProxy.CachedAimPitch);
+	MainAnimInstanceProxy.AimPitch = UKismetMathLibrary::NormalizeAxis(MainAnimInstanceProxy.CachedAimPitch);
 }
 void UCharacterAnimInstance::UpdateJumpFallData()
 {
-	if (bIsJumping)
-		TimeToJumpApex = UKismetMathLibrary::SafeDivide((0.0f - WorldVelocity.Z), MainAnimInstanceProxy.CachedGravityZ);
+	if (MainAnimInstanceProxy.bIsJumping)
+		MainAnimInstanceProxy.TimeToJumpApex = UKismetMathLibrary::SafeDivide((0.0f - MainAnimInstanceProxy.WorldVelocity.Z), MainAnimInstanceProxy.CachedGravityZ);
 	else
-		TimeToJumpApex = 0.0f;
+		MainAnimInstanceProxy.TimeToJumpApex = 0.0f;
 }
 
-//Helper Functions
+//Gameplay tag
+void UCharacterAnimInstance::OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+	SafebGameplayTagIsFiring = (NewCount > 0);
+}
+
+//Node Binding functions
+void UCharacterAnimInstance::UpdateIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FAnimationStateResultReference State;
+	bool bSucceeded = true;
+	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+
+	if (UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
+		Proxy.TurnYawCurveValue = 0.0f;
+	else
+	{
+		Proxy.RootYawOffsetMode = ERootYawOffsetMode::Accumulate;
+		ProcessTurnYawCurve();
+	}
+}
+void UCharacterAnimInstance::SetUpStartState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+	Proxy.StartDirection = Proxy.LocalVelocityDirection;
+}
+void UCharacterAnimInstance::UpdateStartState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FAnimationStateResultReference State;
+	bool bSucceeded = true;
+	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+
+	if (!UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
+		Proxy.RootYawOffsetMode = ERootYawOffsetMode::Hold;
+}
+void UCharacterAnimInstance::UpdateStopState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FAnimationStateResultReference State;
+	bool bSucceeded = true;
+	UAnimationStateMachineLibrary::ConvertToAnimationStateResultPure(Node, State, bSucceeded);
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+
+	if (!UAnimationStateMachineLibrary::IsStateBlendingOut(Context, State))
+		Proxy.RootYawOffsetMode = ERootYawOffsetMode::Accumulate;
+}
+void UCharacterAnimInstance::SetUpPivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+	Proxy.PivotInitialDirection = Proxy.LocalVelocityDirection;
+}
+void UCharacterAnimInstance::UpdatePivotState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+
+	if (Proxy.LastPivotTime > 0.0f)
+		Proxy.LastPivotTime -= UAnimExecutionContextLibrary::GetDeltaTime(Context);
+}
+void UCharacterAnimInstance::UpdateLocomotionStateMachine(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	EAnimNodeReferenceConversionResult Result;
+	FLinkedAnimGraphReference LinkedGraph = ULinkedAnimGraphLibrary::ConvertToLinkedAnimGraph(Node, Result);
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+
+	UAnimInstance* CurrentInstance = ULinkedAnimGraphLibrary::GetLinkedAnimInstance(LinkedGraph);
+	if (!bIsFirstUpdate)
+		Proxy.bLinkedLayerChanged = CurrentInstance != Proxy.LastLinkedLayer;
+	Proxy.LastLinkedLayer = CurrentInstance;
+}
+
+//Helper functions
 ECardinalDirection UCharacterAnimInstance::SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection)
 {
 	float AbsAngle = FMath::Abs(Angle);
@@ -327,43 +321,132 @@ ECardinalDirection UCharacterAnimInstance::GetOppositeCardinalDirection(const EC
 }
 bool UCharacterAnimInstance::IsMovingPerpendicularToInitialPivot() const
 {
-	bool PivotFB = (PivotInitialDirection == ECardinalDirection::Forward) || (PivotInitialDirection == ECardinalDirection::Backward);
-	bool VelocityFB = (LocalVelocityDirection == ECardinalDirection::Forward) || (LocalVelocityDirection == ECardinalDirection::Backward);
-	bool PivotLR = (PivotInitialDirection == ECardinalDirection::Left) || (PivotInitialDirection == ECardinalDirection::Right);
-	bool VelocityLR = (LocalVelocityDirection == ECardinalDirection::Left) || (LocalVelocityDirection == ECardinalDirection::Right);
+	bool PivotFB = (MainAnimInstanceProxy.PivotInitialDirection == ECardinalDirection::Forward) || (MainAnimInstanceProxy.PivotInitialDirection == ECardinalDirection::Backward);
+	bool VelocityFB = (MainAnimInstanceProxy.LocalVelocityDirection == ECardinalDirection::Forward) || (MainAnimInstanceProxy.LocalVelocityDirection == ECardinalDirection::Backward);
+	bool PivotLR = (MainAnimInstanceProxy.PivotInitialDirection == ECardinalDirection::Left) || (MainAnimInstanceProxy.PivotInitialDirection == ECardinalDirection::Right);
+	bool VelocityLR = (MainAnimInstanceProxy.LocalVelocityDirection == ECardinalDirection::Left) || (MainAnimInstanceProxy.LocalVelocityDirection == ECardinalDirection::Right);
 	return (PivotFB && !VelocityFB) || (PivotLR && !VelocityLR);
 }
 void UCharacterAnimInstance::SetRootYawOffset(float InRootYawOffset)
 {
 	if (!bEnableRootYawOffset)
 	{
-		RootYawOffset = 0.0f;
-		AimYaw = 0.0f;
+		MainAnimInstanceProxy.RootYawOffset = 0.0f;
+		MainAnimInstanceProxy.AimYaw = 0.0f;
 	}
 	else
 	{
-		FVector2D Clamp = bIsCrouching ? RootYawOffsetAngleClampCrouched : RootYawOffsetAngleClamp;
+		FVector2D Clamp = MainAnimInstanceProxy.bIsCrouching ? MainAnimInstanceProxy.RootYawOffsetAngleClampCrouched : MainAnimInstanceProxy.RootYawOffsetAngleClamp;
 		float Normalized = UKismetMathLibrary::NormalizeAxis(InRootYawOffset);
 		float Clamped = UKismetMathLibrary::ClampAngle(Normalized, Clamp.X, Clamp.Y);
-		RootYawOffset = Clamp.X == Clamp.Y ? Normalized : Clamped;
-		AimYaw = RootYawOffset * -1.0f;
+		MainAnimInstanceProxy.RootYawOffset = Clamp.X == Clamp.Y ? Normalized : Clamped;
+		MainAnimInstanceProxy.AimYaw = MainAnimInstanceProxy.RootYawOffset * -1.0f;
 	}
 }
 void UCharacterAnimInstance::ProcessTurnYawCurve()
 {
-	float PreviousTurnYawCurveValue = TurnYawCurveValue;
-	
-	float TurnYawWeight = TurnYawWeightCurve;
+	float PreviousTurnYawCurveValue = MainAnimInstanceProxy.TurnYawCurveValue;
+
+	float TurnYawWeight = MainAnimInstanceProxy.TurnYawWeightCurve;
 	if (UKismetMathLibrary::NearlyEqual_FloatFloat(TurnYawWeight, 0.0f))
 	{
-		TurnYawCurveValue = 0.0f;
+		MainAnimInstanceProxy.TurnYawCurveValue = 0.0f;
 		PreviousTurnYawCurveValue = 0.0f;
 	}
 	else
 	{
-		TurnYawCurveValue = RemainingTurnYawCurve / TurnYawWeight;
+		MainAnimInstanceProxy.TurnYawCurveValue = MainAnimInstanceProxy.RemainingTurnYawCurve / TurnYawWeight;
 		if (PreviousTurnYawCurveValue != 0.0f)
-			SetRootYawOffset(RootYawOffset - (TurnYawCurveValue - PreviousTurnYawCurveValue));
+			SetRootYawOffset(MainAnimInstanceProxy.RootYawOffset - (MainAnimInstanceProxy.TurnYawCurveValue - PreviousTurnYawCurveValue));
 	}
 }
+bool UCharacterAnimInstance::ShouldEnableControlRig()
+{
+	return (MainAnimInstanceProxy.DisableLegIKCurve <= 0.0f) && !bUseFootPlacement;
+}
 
+//Getter functions
+bool UCharacterAnimInstance::GetIsCrouching() const
+{
+	return MainAnimInstanceProxy.bIsCrouching;
+}
+bool UCharacterAnimInstance::GetCrouchStateChanged() const
+{
+	return MainAnimInstanceProxy.bCrouchStateChange;
+}
+bool UCharacterAnimInstance::GetIsMovingOnGround() const
+{
+	return MainAnimInstanceProxy.CachedIsMovingOnGround;
+}
+bool UCharacterAnimInstance::GetIsJumping() const
+{
+	return MainAnimInstanceProxy.bIsJumping;
+}
+bool UCharacterAnimInstance::GetIsFalling() const
+{
+	return MainAnimInstanceProxy.bIsFalling;
+}
+bool UCharacterAnimInstance::GetHasVelocity() const
+{
+	return MainAnimInstanceProxy.bHasVelocity;
+}
+bool UCharacterAnimInstance::GetHasAcceleration() const
+{
+	return MainAnimInstanceProxy.bHasAcceleration;
+}
+bool UCharacterAnimInstance::GetIsRunningIntoWall() const
+{
+	return MainAnimInstanceProxy.bIsRunningIntoWall;
+}
+float UCharacterAnimInstance::GetDisplacementSpeed() const
+{
+	return MainAnimInstanceProxy.DisplacementSpeed;
+}
+float UCharacterAnimInstance::GetRootYawOffset() const
+{
+	return MainAnimInstanceProxy.RootYawOffset;
+}
+float UCharacterAnimInstance::GetGroundDistance() const
+{
+	return MainAnimInstanceProxy.GroundDistance;
+}
+float UCharacterAnimInstance::GetTimeSinceFiredWeapon() const
+{
+	return MainAnimInstanceProxy.TimeSinceFiredWeapon;
+}
+float UCharacterAnimInstance::GetLastPivotTime() const
+{
+	return MainAnimInstanceProxy.LastPivotTime;
+}
+float UCharacterAnimInstance::GetDisplacementSinceLastUpdate() const
+{
+	return MainAnimInstanceProxy.DisplacementSinceLastUpdate;
+}
+FVector UCharacterAnimInstance::GetWorldLocation() const
+{
+	return MainAnimInstanceProxy.WorldLocation;
+}
+FVector UCharacterAnimInstance::GetLocalVelocty2D() const
+{
+	return MainAnimInstanceProxy.LocalVelocity2D;
+}
+FVector UCharacterAnimInstance::GetLocalAcceleration2D() const
+{
+	return MainAnimInstanceProxy.LocalAcceleration2D;
+}
+ECardinalDirection UCharacterAnimInstance::GetLocalVelocityDirection() const
+{
+	return MainAnimInstanceProxy.LocalVelocityDirection;
+}
+ECardinalDirection UCharacterAnimInstance::GetLocalVelocityDirectionNoOffset() const
+{
+	return MainAnimInstanceProxy.LocalVelocityDirectionNoOffset;
+}
+ECardinalDirection UCharacterAnimInstance::GetCardinalDirectionFromAcceleration() const
+{
+	return MainAnimInstanceProxy.CardinalDirectionFromAcceleration;
+}
+void UCharacterAnimInstance::SetLastPivotTime()
+{
+	MainAnimInstanceProxy.LastPivotTime = 0.2f;
+}

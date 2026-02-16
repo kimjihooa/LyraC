@@ -13,20 +13,34 @@
 #include "ItemAnimLayerInstance.generated.h"
 
 /**
- * 
+ *
  */
 USTRUCT(BlueprintType)
-struct FItemAnimLayerInstanceProxy : public FAnimInstanceProxy
+struct FAnimStructCardinalDirections
 {
 	GENERATED_BODY()
 
-	FItemAnimLayerInstanceProxy() : FAnimInstanceProxy() {}
-	FItemAnimLayerInstanceProxy(UAnimInstance* Instance) : FAnimInstanceProxy(Instance){}
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<UAnimSequence> Forward;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<UAnimSequence> Backward;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<UAnimSequence> Left;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<UAnimSequence> Right;
+};
 
-	virtual void PreUpdate(UAnimInstance* Instance, float DeltaSeconds) override;
-	virtual void Update(float DeltaSeconds) override;
+USTRUCT(BlueprintType)
+struct FLinkedAnimInstanceProxy : public FAnimInstanceProxy
+{
+	GENERATED_BODY()
 
-	//Data to pull from outside
+	FLinkedAnimInstanceProxy() : FAnimInstanceProxy() {}
+	FLinkedAnimInstanceProxy(UAnimInstance* Instance) : FAnimInstanceProxy(Instance) {}
+	virtual void PreUpdate(UAnimInstance* Instance, float DeltaTime) override;
+
+	//Data from outside
 	bool CachedbIsCrouching = false;
 	bool CachedbCrouchStateChange = false;
 	bool CachedbGameplayTagIsADS = false;
@@ -50,6 +64,7 @@ struct FItemAnimLayerInstanceProxy : public FAnimInstanceProxy
 	float CachedBrakingFrictionFactor = 2.0f;
 	float CachedBrakingDecelerationWalking = 2048.0f;
 	float CachedDisplacementSinceLastUpdate = 0.0f;
+	//float LastPivotTime = 0.0f;
 	FVector CachedWorldLocation = FVector::ZeroVector;
 	FVector CachedLocalVelocity = FVector::ZeroVector;
 	FVector CachedLocalAcceleration = FVector::ZeroVector;
@@ -58,37 +73,20 @@ struct FItemAnimLayerInstanceProxy : public FAnimInstanceProxy
 	ECardinalDirection CachedCardinalDirectionFromAcceleration = ECardinalDirection::Forward;
 	ECardinalDirection CachedLocalVelocityDirection = ECardinalDirection::Forward;
 	ECardinalDirection CachedLocalVelocityDirectionNoOffset = ECardinalDirection::Forward;
+
+	//Curves
+	FName CurveValue_ApplyHipFireCurve = FName("applyHipfireOverridePose");
+	FName CurveValue_DisableRHandCurve = FName("DisableRHandIK");
+	FName CurveValue_DisableLHandCurve = FName("DisableLHandIK");
+	FName CurveValue_DisableLegCurve = FName("DisableLegIK");
+	FName CurveValue_DisableLeftHandPoseOverride = FName("DisableLeftHandPoseOverride");
 	float ApplyHipFireCurve = 0.0f;
 	float DisableRHandCurve = 0.0f;
 	float DisableLHandCurve = 0.0f;
 	float DisableLegCurve = 0.0f;
 	float DisableLeftHandPoseOverride = 0.0f;
 
-	//Curve names
-	FName CurveValue_ApplyHipFireCurve = FName("applyHipfireOverridePose ");
-	FName CurveValue_DisableRHandCurve = FName("DisableRHandIK");
-	FName CurveValue_DisableLHandCurve = FName("DisableLHandIK");
-	FName CurveValue_DisableLegCurve = FName("DisableLegIK");
-	FName CurveValue_DisableLeftHandPoseOverride = FName("DisableLeftHandPoseOverride");
-
-	//Setting variables from instance
-	bool bRaiseWeaponAfterFiringWhenCrouched = false;
-	float RaiseWeaponAfterFiringWeapon = 0.5;
-	float StrideWarpingBlendInStartOffset = 0.15;
-	float StrideWarpingBlendInDurationScaled = 0.2;
-	FVector2D PlayRateClampStartsPivots = FVector2D(0.6f, 5.0f);
-	FVector2D PlayRateClampCycle = FVector2D(0.8f, 1.2f);
-	bool bDisableHandIK = false;
-	bool bEnableLeftHandPoseOverride = false;
-	FName JumpDistanceCurveName = FName("GroundDistance");
-	FName LocomotionDistanceCurveName = FName("Distance");
-
-	//Data update functions
-	void UpdateBlendWeightsData(float DeltaTime);
-	void UpdateJumpFallData(float DeltaTime);
-	void UpdateSkelControlData();
-
-	//Data to update
+	//Calculated Data
 	UPROPERTY(BlueprintReadOnly, Category = "BlendWeightData")
 	float HipFireUpperBodyOverrideWeight = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "BlendWeightData")
@@ -99,59 +97,163 @@ struct FItemAnimLayerInstanceProxy : public FAnimInstanceProxy
 	float HandIKRightAlpha = 1.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "SkelControlData", meta = (BlueprintThreadSafe))
 	float HandIKLeftAlpha = 1.0f;
-};
-
-USTRUCT(BlueprintType)
-struct FAnimStructCardinalDirections
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<UAnimSequence> Forward;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<UAnimSequence> Backward;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<UAnimSequence> Left;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<UAnimSequence> Right;
+	UPROPERTY(BlueprintReadOnly)
+	float LeftHandOverrideWeight = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float HandFKWeight = 1.0f;
+	UPROPERTY(BlueprintReadOnly)
+	FVector PivotStartingAcceleration = FVector::ZeroVector;
+	UPROPERTY(BlueprintReadOnly)
+	float TimeAtPivotStop = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float StrideWarpingStartAlpha = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float StrideWarpingPivotAlpha = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float StrideWarpingCycleAlpha = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float IdleBreakDelayTime = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float TimeUntilNextIdleBreak = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	int CurrentIdleBreakIndex = 0;
+	UPROPERTY(BlueprintReadOnly)
+	float TurnInPlaceAnimTime = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float TurnInPlaceRotationDirection = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float TurnInPlaceRecoveryDirection = 0.0f;
+	UPROPERTY(BlueprintReadOnly)
+	float LandRecoveryAlpha = 0.0f;
 };
 
 UCLASS()
 class PROJECTSSA_API UItemAnimLayerInstance : public UAnimInstance
 {
 	GENERATED_BODY()
-	
+
 protected:
-	UPROPERTY(Transient)
-	FItemAnimLayerInstanceProxy ItemAnimLayerProxy;
+	//Proxy
 	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
 	virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy) override;
+	FLinkedAnimInstanceProxy LinkedAnimInstanceProxy;
 
 public:
 	UItemAnimLayerInstance();
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta=(BlueprintThreadSafe))
-	float GetHipfireUpperBodyOverrideWeight() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool GetCrouchStateChanged() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	float GetHandIKLeftAlpha() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	float GetHandIKRightAlpha() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	float GetAimOffsetBlendWeight() const;
 
 protected:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaTime) override;
 	virtual void NativeThreadSafeUpdateAnimation(float DeltaTime) override;
 
+	//Data update function
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
 	UCharacterAnimInstance* GetMainAnimBP();
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateBlendWeightsData(float DeltaTime);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateJumpFallData(float DeltaTime);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateSkelControlData();
+
+	//Data
 	UPROPERTY(BlueprintReadOnly, Category = "Data")
 	TObjectPtr<UCharacterAnimInstance> MainAnimBPRef;
 	UPROPERTY(BlueprintReadOnly, Category = "Data")
 	TObjectPtr<UCharacterMovementComponent> MovementComponent;
+
+	//Settings
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	bool bRaiseWeaponAfterFiringWhenCrouched = false;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	float RaiseWeaponAfterFiringWeapon = 0.5;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	float StrideWarpingBlendInStartOffset = 0.15;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	float StrideWarpingBlendInDurationScaled = 0.2;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	FVector2D PlayRateClampStartsPivots = FVector2D(0.6f, 5.0f);
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	FVector2D PlayRateClampCycle = FVector2D(0.8f, 1.2f);
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	bool bDisableHandIK = false;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	bool bEnableLeftHandPoseOverride = false;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	FName JumpDistanceCurveName = FName("GroundDistance");
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
+	FName LocomotionDistanceCurveName = FName("Distance");
+
+	//Functions to bind to node
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetLeftHandPoseOverrideWeight(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateHipFireRaiseWeaponPose(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpFallLandAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateFallLandAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpPivotAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdatePivotAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpStopAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateStopAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateCycleAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpStartAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateStartAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateIdleAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpIdleTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpIdleBreakAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpTurnInPlaceAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateTurnInPlaceAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpTurnInPlaceRotationState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void UpdateTurnInPlaceRecoveryAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void SetUpTurnInPlaceRecoveryState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void LandRecoveryStart(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+
+	//Helper functions
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	bool ShouldEnableFootPlacement() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	bool ShouldDistanceMatchStop() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetPredictedStopDistance() const;
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void ChooseIdleBreakDelayTime();
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	bool CanPlayIdleBreak() const;
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void ResetIdleBreakTransitionLogic();
+	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
+	void ProcessIdleBreakTransitionLogic(float DeltaTime);
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	UAnimSequence* GetDesiredPivotSequence(ECardinalDirection InDirection) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	UAnimSequence* SelectTurnInPlaceAnimation(float Direction);
+	bool bChangeLastPivotTime = false;
+
+	//Getter functions
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetHipFireUpperBodyOverrideWeight() const;
 
 	//Animation assets
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-Idle")
@@ -220,124 +322,4 @@ protected:
 	TObjectPtr<UAnimSequence> TurnInPlaceRight;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-TurnInPlace")
 	TObjectPtr<UAnimSequence> CrouchTurnInPlaceRight;
-
-	//Data to calculate
-	UPROPERTY(BlueprintReadOnly)
-	float LeftHandOverrideWeight = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float HandFKWeight = 1.0f;
-	UPROPERTY(BlueprintReadOnly)
-	FVector PivotStartingAcceleration = FVector::ZeroVector;
-	UPROPERTY(BlueprintReadOnly)
-	float TimeAtPivotStop = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float StrideWarpingStartAlpha = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float StrideWarpingPivotAlpha = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float StrideWarpingCycleAlpha = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float IdleBreakDelayTime = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float TimeUntilNextIdleBreak = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	int CurrentIdleBreakIndex = 0;
-	UPROPERTY(BlueprintReadOnly)
-	float TurnInPlaceAnimTime = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float TurnInPlaceRotationDirection = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float TurnInPlaceRecoveryDirection = 0.0f;
-	UPROPERTY(BlueprintReadOnly)
-	float LandRecoveryAlpha = 0.0f;
-	float LastPivotTime = 0.0f;
-	bool bChangeLastPivotTime = false;
-
-	//Setting variables
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	bool bRaiseWeaponAfterFiringWhenCrouched = false;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	float RaiseWeaponAfterFiringWeapon = 0.5;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	float StrideWarpingBlendInStartOffset = 0.15;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	float StrideWarpingBlendInDurationScaled = 0.2;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	FVector2D PlayRateClampStartsPivots = FVector2D(0.6f, 5.0f);
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	FVector2D PlayRateClampCycle = FVector2D(0.8f, 1.2f);
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	bool bDisableHandIK = false;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	bool bEnableLeftHandPoseOverride = false;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	FName JumpDistanceCurveName = FName("GroundDistance");
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Settings")
-	FName LocomotionDistanceCurveName = FName("Distance");
-
-	//Node binding functions
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetLeftHandPoseOverrideWeight(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateHipFireRaiseWeaponPose(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpFallLandAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateFallLandAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpPivotAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdatePivotAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpStopAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateStopAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateCycleAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpStartAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateStartAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateIdleAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpIdleTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpIdleBreakAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpTurnInPlaceAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateTurnInPlaceAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpTurnInPlaceRotationState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void UpdateTurnInPlaceRecoveryAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void SetUpTurnInPlaceRecoveryState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void LandRecoveryStart(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-
-	//Helper functions
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool ShouldEnableFootPlacement() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool ShouldDistanceMatchStop() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	float GetPredictedStopDistance() const;
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void ChooseIdleBreakDelayTime();
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool CanPlayIdleBreak() const;
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void ResetIdleBreakTransitionLogic();
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void ProcessIdleBreakTransitionLogic(float DeltaTime);
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	UAnimSequence* GetDesiredPivotSequence(ECardinalDirection InDirection) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	UAnimSequence* SelectTurnInPlaceAnimation(float Direction);
 };

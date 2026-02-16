@@ -20,7 +20,7 @@
 #include "CharacterAnimInstance.generated.h"
 
 /**
- * 
+ *
  */
 UENUM(BlueprintType)
 enum class ECardinalDirection : uint8
@@ -38,9 +38,6 @@ enum class ERootYawOffsetMode : uint8
 	Accumulate
 };
 
-class UItemAnimLayerInstance;
-struct FItemAnimLayerInstanceProxy;
-
 USTRUCT(BlueprintType)
 struct FMainAnimInstanceProxy : public FAnimInstanceProxy
 {
@@ -48,10 +45,9 @@ struct FMainAnimInstanceProxy : public FAnimInstanceProxy
 
 	FMainAnimInstanceProxy() : FAnimInstanceProxy() {}
 	FMainAnimInstanceProxy(UAnimInstance* Instance) : FAnimInstanceProxy(Instance) {}
+	virtual void PreUpdate(UAnimInstance* Instance, float DeltaTime) override;
 
-	virtual void PreUpdate(UAnimInstance* Instance, float DeltaSeconds) override;
-	virtual void Update(float DeltaSeconds) override;
-
+	//Data from outside
 	FVector CachedLocation = FVector::ZeroVector;
 	FRotator CachedRotation = FRotator::ZeroRotator;
 	FVector CachedVelocity = FVector::ZeroVector;
@@ -62,74 +58,16 @@ struct FMainAnimInstanceProxy : public FAnimInstanceProxy
 	bool CachedIsAnyMontagePlaying = false;
 	float CachedAimPitch = 0.0f;
 	float CachedGravityZ = 0.0f;
-};
 
-UCLASS()
-class PROJECTSSA_API UCharacterAnimInstance : public UAnimInstance
-{
-	GENERATED_BODY()
+	//Curves
+	FName CurveName_TurnYawWeight = TEXT("TurnYawWeight");
+	FName CurveName_RemainingTurnYaw = TEXT("RemainingTurnYaw");
+	FName CurveName_DisableLegIK = TEXT("DisableLegIK");
+	float TurnYawWeightCurve = 0.0f;
+	float RemainingTurnYawCurve = 0.0f;
+	float DisableLegIKCurve = 0.0f;
 
-protected:
-	UPROPERTY(Transient)
-	FMainAnimInstanceProxy MainAnimInstanceProxy;
-	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
-	virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy) override;
-
-public:
-	UCharacterAnimInstance();
-	friend class UItemAnimLayerInstance;
-	friend struct FItemAnimLayerInstanceProxy;
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions", meta = (BlueprintThreadSafe))
-	bool IsMovingPerpendicularToInitialPivot() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
-	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool ShouldEnableControlRig();
-
-protected:
-	virtual void NativeInitializeAnimation() override;
-	virtual void NativeUpdateAnimation(float DeltaTime) override;
-	virtual void NativeThreadSafeUpdateAnimation(float DeltaTime) override;
-
-	UFUNCTION(BlueprintCallable)
-	UCharacterMovementComponent* GetMovementComponent();
-
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateLocationData(float DeltaTime);
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateRotationData(float DeltaTime);
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateVelocityData();
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateAccelerationData();
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateWallDetectionHeuristic();
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateCharacterStateData(float DeltaTime);
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateBlendWeightData(float DeltaTime);
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateRootYawOffset(float DeltaTime);
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void SetRootYawOffset(float InRootYawOffset);
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void ProcessTurnYawCurve();
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateAimingData();
-	UFUNCTION(BlueprintCallable, Category = "UpdateData")
-	void UpdateJumpFallData();
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
-	ECardinalDirection SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection);
-
-	UPROPERTY(BlueprintReadOnly, Category = "Data")
-	TObjectPtr<AActor> ActorRef;
-	UPROPERTY(BlueprintReadOnly, Category = "Data")
-	TObjectPtr<APawn> PawnRef;
-	UPROPERTY(BlueprintReadOnly, Category = "Data")
-	TObjectPtr<AMainCharacter> MainCharacterRef;
-	UPROPERTY(BlueprintReadOnly, Category = "Data")
-	TObjectPtr<UCharacterMovementComponent> MovementRef;
+	//Calculated Data
 	UPROPERTY(BlueprintReadOnly, Category = "LocationData")
 	float DisplacementSinceLastUpdate = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "LocationData")
@@ -220,13 +158,14 @@ protected:
 	ECardinalDirection StartDirection = ECardinalDirection::Forward;
 	UPROPERTY(BlueprintReadOnly, Category = "LocomotionSMData")
 	ECardinalDirection PivotInitialDirection = ECardinalDirection::Forward;
-	UPROPERTY(BlueprintReadWrite, Category = "LocomotionSMData")
+	UPROPERTY(BlueprintReadOnly, Category = "LocomotionSMData")
 	float LastPivotTime = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "LinkedLayerData")
 	UAnimInstance* LastLinkedLayer = nullptr;
 	UPROPERTY(BlueprintReadOnly, Category = "LinkedLayerData")
 	bool bLinkedLayerChanged = false;
 
+	//Gameplay tags
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsADS = false;
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
@@ -235,14 +174,76 @@ protected:
 	bool bGameplayTagIsDashing = false;
 	UPROPERTY(BlueprintReadOnly, Category = "GameplayTags")
 	bool bGameplayTagIsMelee = false;
+};
 
+class UItemAnimLayerInstance;
+
+UCLASS()
+class PROJECTSSA_API UCharacterAnimInstance : public UAnimInstance
+{
+	GENERATED_BODY()
+
+protected:
+	//Proxy
+	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
+	virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy) override;
+	FMainAnimInstanceProxy MainAnimInstanceProxy;
+
+public:
+	UCharacterAnimInstance();
+	friend class UItemAnimLayerInstance;
+
+protected:
+	virtual void NativeInitializeAnimation() override;
+	virtual void NativeUpdateAnimation(float DeltaTime) override;
+	virtual void NativeThreadSafeUpdateAnimation(float DeltaTime) override;
+
+	//Data update functions
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateLocationData(float DeltaTime);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateRotationData(float DeltaTime);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateVelocityData();
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateAccelerationData();
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateWallDetectionHeuristic();
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateCharacterStateData(float DeltaTime);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateBlendWeightData(float DeltaTime);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateRootYawOffset(float DeltaTime);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void SetRootYawOffset(float InRootYawOffset);
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void ProcessTurnYawCurve();
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateAimingData();
+	UFUNCTION(BlueprintCallable, Category = "UpdateData")
+	void UpdateJumpFallData();
+	
+	//Data sources
+	UFUNCTION(BlueprintCallable)
+	UCharacterMovementComponent* GetMovementComponent();
+	UPROPERTY(BlueprintReadOnly, Category = "Data")
+	TObjectPtr<AActor> ActorRef;
+	UPROPERTY(BlueprintReadOnly, Category = "Data")
+	TObjectPtr<APawn> PawnRef;
+	UPROPERTY(BlueprintReadOnly, Category = "Data")
+	TObjectPtr<AMainCharacter> MainCharacterRef;
+	UPROPERTY(BlueprintReadOnly, Category = "Data")
+	TObjectPtr<UCharacterMovementComponent> MovementRef;
+
+	//Gameplay tags
 	FThreadSafeBool SafebGameplayTagIsADS = false;
 	FThreadSafeBool SafebGameplayTagIsFiring = false;
 	FThreadSafeBool SafebGameplayTagIsDashing = false;
 	FThreadSafeBool SafebGameplayTagIsMelee = false;
-
 	void OnFiringTagChanged(const FGameplayTag Tag, int32 NewCount);
 
+	//Bools
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsFirstUpdate = true;
 	UPROPERTY(BlueprintReadOnly)
@@ -252,7 +253,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	bool bUseFootPlacement = false;
 
-
+	//Node binding functions
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
 	void UpdateIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
@@ -268,16 +269,37 @@ protected:
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
 	void UpdateLocomotionStateMachine(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 
-	FName CurveName_TurnYawWeight;
-	FName CurveName_RemainingTurnYaw;
-	FName CurveName_DisableLegIK;
-	float TurnYawWeightCurve = 0.0f;
-	float RemainingTurnYawCurve = 0.0f;
-	float DisableLegIKCurve = 0.0f;
-
 public:
+	//Helper functions
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions", meta = (BlueprintThreadSafe))
+	bool IsMovingPerpendicularToInitialPivot() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
+	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
+	ECardinalDirection SelectCarialDirectionFromAngle(const float Angle, const float DeadZone, const ECardinalDirection CurrentDirection, const bool bUseCurrentDirection);
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool GetIsCroching() { return MainAnimInstanceProxy.CachedIsCroching; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool GetIsMovingOnGround() { return MainAnimInstanceProxy.CachedIsMovingOnGround; }
+	bool ShouldEnableControlRig();
+
+	//Getter functions
+	bool GetIsCrouching() const;
+	bool GetCrouchStateChanged() const;
+	bool GetIsMovingOnGround() const;
+	bool GetIsJumping() const;
+	bool GetIsFalling() const;
+	bool GetHasVelocity() const;
+	bool GetHasAcceleration() const;
+	bool GetIsRunningIntoWall() const;
+	float GetDisplacementSpeed() const;
+	float GetRootYawOffset() const;
+	float GetGroundDistance() const;
+	float GetTimeSinceFiredWeapon() const;
+	float GetLastPivotTime() const;
+	float GetDisplacementSinceLastUpdate() const;
+	FVector GetWorldLocation() const;
+	FVector GetLocalVelocty2D() const;
+	FVector GetLocalAcceleration2D() const;
+	ECardinalDirection GetLocalVelocityDirection() const;
+	ECardinalDirection GetLocalVelocityDirectionNoOffset() const;
+	ECardinalDirection GetCardinalDirectionFromAcceleration() const;
+	void SetLastPivotTime();
 };

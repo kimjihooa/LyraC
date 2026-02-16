@@ -3,148 +3,29 @@
 
 #include "ItemAnimLayerInstance.h"
 
-//Data Getter Proxy
-FAnimInstanceProxy* UItemAnimLayerInstance::CreateAnimInstanceProxy()
-{
-	return &ItemAnimLayerProxy;
-}
-void UItemAnimLayerInstance::DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy)
-{
-}
-void FItemAnimLayerInstanceProxy::PreUpdate(UAnimInstance* Instance, float DeltaSeconds)
-{
-	Super::PreUpdate(Instance, DeltaSeconds);
-	
-	UCharacterAnimInstance* MainAnimBPRef = nullptr;
-	if (USkeletalMeshComponent* SKMesh = Instance->GetOwningComponent())
-		if (UAnimInstance* AnimBP = SKMesh->GetAnimInstance())
-			if (UCharacterAnimInstance* Result = Cast<UCharacterAnimInstance>(AnimBP))
-				MainAnimBPRef = Result;
 
-	UCharacterMovementComponent* MovementComponent = nullptr;
-	if (APawn* PawnOwner = Instance->TryGetPawnOwner())
-		if (UMovementComponent* Movement = PawnOwner->GetMovementComponent())
-			if (UCharacterMovementComponent* CMC = Cast<UCharacterMovementComponent>(Movement))
-				MovementComponent = CMC;
+void FLinkedAnimInstanceProxy::PreUpdate(UAnimInstance* Instance, float DeltaTime)
+{
+	Super::PreUpdate(Instance, DeltaTime);
 
-	if (MainAnimBPRef == nullptr || MovementComponent == nullptr)
-		return;
-
-	CachedbIsCrouching = MainAnimBPRef->GetIsCroching();
-	CachedbCrouchStateChange = MainAnimBPRef->bCrouchStateChange;
-	CachedbGameplayTagIsADS = MainAnimBPRef->SafebGameplayTagIsADS;
-	CachedbGameplayTagIsFiring = MainAnimBPRef->SafebGameplayTagIsFiring;
-	CachedbIsOnGround = MainAnimBPRef->GetIsMovingOnGround();
-	CachedbIsJumping = MainAnimBPRef->bIsJumping;
-	CachedbIsFalling = MainAnimBPRef->bIsFalling;
-	CachedbHasVelocity = MainAnimBPRef->bHasVelocity;
-	CachedbHasAcceleration = MainAnimBPRef->bHasAcceleration;
-	CachedbIsRunningIntoWall = MainAnimBPRef->bIsRunningIntoWall;
-	CachedbIsAnyMontagePlaying = MainAnimBPRef->IsAnyMontagePlaying();
-	CachedbUseSeperateBrakingFriction = MovementComponent->bUseSeparateBrakingFriction;
-	CachedBrakingFriction = MovementComponent->BrakingFriction;
-	CachedBrakingFrictionFactor = MovementComponent->BrakingFrictionFactor;
-	CachedDisplacementSpeed = MainAnimBPRef->DisplacementSpeed;
-	CachedbUseFootPlacement = MainAnimBPRef->bUseFootPlacement;
-	CachedRootYawOffset = MainAnimBPRef->RootYawOffset;
-	CachedGroundDistance = MainAnimBPRef->GroundDistance;
-	CachedTimeSinceFiredWeapon = MainAnimBPRef->TimeSinceFiredWeapon;
-	CachedLastPivotTime = MainAnimBPRef->LastPivotTime;
-	CachedGroundFriction = MovementComponent->GroundFriction;
-	CachedBrakingDecelerationWalking = MovementComponent->BrakingDecelerationWalking;
-	CachedDisplacementSinceLastUpdate = MainAnimBPRef->DisplacementSinceLastUpdate;
-	CachedWorldLocation = MainAnimBPRef->WorldLocation;
-	CachedLocalVelocity = MainAnimBPRef->LocalVelocity2D;
-	CachedLocalVelocityDirection = MainAnimBPRef->LocalVelocityDirection;
-	CachedLocalVelocityDirectionNoOffset = MainAnimBPRef->LocalVelocityDirectionNoOffset;
-	CachedLocalAcceleration = MainAnimBPRef->LocalAcceleration2D;
-	CachedCurrentAcceleration = MovementComponent->GetCurrentAcceleration();
-	CachedLastUpdateVelocity = MovementComponent->GetLastUpdateVelocity();
-	CachedCardinalDirectionFromAcceleration = MainAnimBPRef->CardinalDirectionFromAcceleration;
 	ApplyHipFireCurve = Instance->GetCurveValue(CurveValue_ApplyHipFireCurve);
 	DisableRHandCurve = Instance->GetCurveValue(CurveValue_DisableRHandCurve);
 	DisableLHandCurve = Instance->GetCurveValue(CurveValue_DisableLHandCurve);
 	DisableLegCurve = Instance->GetCurveValue(CurveValue_DisableLegCurve);
 	DisableLeftHandPoseOverride = Instance->GetCurveValue(CurveValue_DisableLeftHandPoseOverride);
 }
-void FItemAnimLayerInstanceProxy::Update(float DeltaSeconds)
-{
-	Super::Update(DeltaSeconds);
 
-	UpdateBlendWeightsData(DeltaSeconds);
-	UpdateJumpFallData(DeltaSeconds);
-	UpdateSkelControlData();
-}
-
-//Data Calculation Functions
-void FItemAnimLayerInstanceProxy::UpdateBlendWeightsData(float DeltaTime)
+FAnimInstanceProxy* UItemAnimLayerInstance::CreateAnimInstanceProxy()
 {
-	if ((!bRaiseWeaponAfterFiringWhenCrouched && CachedbIsCrouching) || ((!CachedbIsCrouching && CachedbGameplayTagIsADS) && CachedbIsOnGround))
-	{
-		HipFireUpperBodyOverrideWeight = 0.0f;
-		AimOffsetBlendWeight = 1.0f;
-	}
-	else
-	{
-		if ((CachedTimeSinceFiredWeapon < RaiseWeaponAfterFiringWeapon) || (CachedbGameplayTagIsADS && (CachedbIsCrouching || !CachedbIsOnGround)) || (ApplyHipFireCurve > 0.0f))
-		{
-			HipFireUpperBodyOverrideWeight = 1.0f;
-			AimOffsetBlendWeight = 1.0f;
-		}
-		else
-		{
-			HipFireUpperBodyOverrideWeight = FMath::FInterpTo(HipFireUpperBodyOverrideWeight, 0.0f, DeltaTime, 1.0f);
-			float NewAimOffsetBlendWeight = (FMath::Abs(CachedRootYawOffset) < 10.0f && CachedbHasAcceleration) ? HipFireUpperBodyOverrideWeight : 1.0f;
-			AimOffsetBlendWeight = FMath::FInterpTo(AimOffsetBlendWeight, NewAimOffsetBlendWeight, DeltaTime, 10.0f);
-		}
-	}
+	return &LinkedAnimInstanceProxy;
 }
-void FItemAnimLayerInstanceProxy::UpdateJumpFallData(float DeltaTime)
+void UItemAnimLayerInstance::DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy)
 {
-	if (CachedbIsFalling)
-	{
-		TimeFalling = TimeFalling + DeltaTime;
-	}
-	else
-	{
-		if (CachedbIsJumping)
-		{
-			TimeFalling = 0.0f;
-		}
-	}
-}
-void FItemAnimLayerInstanceProxy::UpdateSkelControlData()
-{
-	float HandIKDIsable = bDisableHandIK ? 0.0f : 1.0f;
-	HandIKRightAlpha = FMath::Clamp(HandIKDIsable - DisableRHandCurve, 0.0f, 1.0f);
-	HandIKLeftAlpha = FMath::Clamp(HandIKDIsable - DisableLHandCurve, 0.0f, 1.0f);
 }
 
-//Anim Instance
 UItemAnimLayerInstance::UItemAnimLayerInstance()
 {
 }
-float UItemAnimLayerInstance::GetHipfireUpperBodyOverrideWeight() const
-{
-	return ItemAnimLayerProxy.HipFireUpperBodyOverrideWeight;
-}
-bool UItemAnimLayerInstance::GetCrouchStateChanged() const
-{
-	return ItemAnimLayerProxy.CachedbCrouchStateChange;
-}
-float UItemAnimLayerInstance::GetHandIKLeftAlpha() const
-{
-	return ItemAnimLayerProxy.HandIKLeftAlpha;
-}
-float UItemAnimLayerInstance::GetHandIKRightAlpha() const
-{
-	return ItemAnimLayerProxy.HandIKRightAlpha;
-}
-float UItemAnimLayerInstance::GetAimOffsetBlendWeight() const
-{
-	return ItemAnimLayerProxy.AimOffsetBlendWeight;
-}
-
 void UItemAnimLayerInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
@@ -154,24 +35,14 @@ void UItemAnimLayerInstance::NativeInitializeAnimation()
 		if (UAnimInstance* AnimBP = SKMesh->GetAnimInstance())
 			if (UCharacterAnimInstance* Result = Cast<UCharacterAnimInstance>(AnimBP))
 				MainAnimBPRef = Result;
-	
+
 	MovementComponent = nullptr;
 	if (APawn* PawnOwner = TryGetPawnOwner())
 		if (UMovementComponent* Movement = PawnOwner->GetMovementComponent())
 			if (UCharacterMovementComponent* CMC = Cast<UCharacterMovementComponent>(Movement))
 				MovementComponent = CMC;
-
-	ItemAnimLayerProxy.bRaiseWeaponAfterFiringWhenCrouched = bRaiseWeaponAfterFiringWhenCrouched;
-	ItemAnimLayerProxy.RaiseWeaponAfterFiringWeapon = RaiseWeaponAfterFiringWeapon;
-	ItemAnimLayerProxy.StrideWarpingBlendInStartOffset = StrideWarpingBlendInStartOffset;
-	ItemAnimLayerProxy.StrideWarpingBlendInDurationScaled = StrideWarpingBlendInDurationScaled;
-	ItemAnimLayerProxy.PlayRateClampStartsPivots = PlayRateClampStartsPivots;
-	ItemAnimLayerProxy.PlayRateClampCycle = PlayRateClampCycle;
-	ItemAnimLayerProxy.bDisableHandIK = bDisableHandIK;
-	ItemAnimLayerProxy.bEnableLeftHandPoseOverride = bEnableLeftHandPoseOverride;
-	ItemAnimLayerProxy.JumpDistanceCurveName = JumpDistanceCurveName;
-	ItemAnimLayerProxy.LocomotionDistanceCurveName = LocomotionDistanceCurveName;
 }
+//Get Data from outside
 void UItemAnimLayerInstance::NativeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeUpdateAnimation(DeltaTime);
@@ -179,34 +50,113 @@ void UItemAnimLayerInstance::NativeUpdateAnimation(float DeltaTime)
 	if (MainAnimBPRef == nullptr || MovementComponent == nullptr)
 		return;
 
+	LinkedAnimInstanceProxy.CachedbIsCrouching = MainAnimBPRef->GetIsCrouching();
+	LinkedAnimInstanceProxy.CachedbCrouchStateChange = MainAnimBPRef->GetCrouchStateChanged();
+	LinkedAnimInstanceProxy.CachedbGameplayTagIsADS = MainAnimBPRef->SafebGameplayTagIsADS;
+	LinkedAnimInstanceProxy.CachedbGameplayTagIsFiring = MainAnimBPRef->SafebGameplayTagIsFiring;
+	LinkedAnimInstanceProxy.CachedbIsOnGround = MainAnimBPRef->GetIsMovingOnGround();
+	LinkedAnimInstanceProxy.CachedbIsJumping = MainAnimBPRef->GetIsJumping();
+	LinkedAnimInstanceProxy.CachedbIsFalling = MainAnimBPRef->GetIsFalling();
+	LinkedAnimInstanceProxy.CachedbHasVelocity = MainAnimBPRef->GetHasVelocity();
+	LinkedAnimInstanceProxy.CachedbHasAcceleration = MainAnimBPRef->GetHasAcceleration();
+	LinkedAnimInstanceProxy.CachedbIsRunningIntoWall = MainAnimBPRef->GetIsRunningIntoWall();
+	LinkedAnimInstanceProxy.CachedbIsAnyMontagePlaying = MainAnimBPRef->IsAnyMontagePlaying();
+	LinkedAnimInstanceProxy.CachedbUseSeperateBrakingFriction = MovementComponent->bUseSeparateBrakingFriction;
+	LinkedAnimInstanceProxy.CachedBrakingFriction = MovementComponent->BrakingFriction;
+	LinkedAnimInstanceProxy.CachedBrakingFrictionFactor = MovementComponent->BrakingFrictionFactor;
+	LinkedAnimInstanceProxy.CachedDisplacementSpeed = MainAnimBPRef->GetDisplacementSpeed();
+	LinkedAnimInstanceProxy.CachedbUseFootPlacement = MainAnimBPRef->bUseFootPlacement;
+	LinkedAnimInstanceProxy.CachedRootYawOffset = MainAnimBPRef->GetRootYawOffset();
+	LinkedAnimInstanceProxy.CachedGroundDistance = MainAnimBPRef->GetGroundDistance();
+	LinkedAnimInstanceProxy.CachedTimeSinceFiredWeapon = MainAnimBPRef->GetTimeSinceFiredWeapon();
+	LinkedAnimInstanceProxy.CachedLastPivotTime = MainAnimBPRef->GetLastPivotTime();
+	LinkedAnimInstanceProxy.CachedGroundFriction = MovementComponent->GroundFriction;
+	LinkedAnimInstanceProxy.CachedBrakingDecelerationWalking = MovementComponent->BrakingDecelerationWalking;
+	LinkedAnimInstanceProxy.CachedDisplacementSinceLastUpdate = MainAnimBPRef->GetDisplacementSinceLastUpdate();
+	LinkedAnimInstanceProxy.CachedWorldLocation = MainAnimBPRef->GetWorldLocation();
+	LinkedAnimInstanceProxy.CachedLocalVelocity = MainAnimBPRef->GetLocalVelocty2D();
+	LinkedAnimInstanceProxy.CachedLocalVelocityDirection = MainAnimBPRef->GetLocalVelocityDirection();
+	LinkedAnimInstanceProxy.CachedLocalVelocityDirectionNoOffset = MainAnimBPRef->GetLocalVelocityDirectionNoOffset();
+	LinkedAnimInstanceProxy.CachedLocalAcceleration = MainAnimBPRef->GetLocalAcceleration2D();
+	LinkedAnimInstanceProxy.CachedCurrentAcceleration = MovementComponent->GetCurrentAcceleration();
+	LinkedAnimInstanceProxy.CachedLastUpdateVelocity = MovementComponent->GetLastUpdateVelocity();
+	LinkedAnimInstanceProxy.CachedCardinalDirectionFromAcceleration = MainAnimBPRef->GetCardinalDirectionFromAcceleration();
 	if (bChangeLastPivotTime)
 	{
-		MainAnimBPRef->LastPivotTime = LastPivotTime;
+		MainAnimBPRef->SetLastPivotTime();
 		bChangeLastPivotTime = false;
 	}
 }
+//Calculate data
 void UItemAnimLayerInstance::NativeThreadSafeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeThreadSafeUpdateAnimation(DeltaTime);
+
+	UpdateBlendWeightsData(DeltaTime);
+	UpdateJumpFallData(DeltaTime);
+	UpdateSkelControlData();
 }
 
+//Data update functions
 UCharacterAnimInstance* UItemAnimLayerInstance::GetMainAnimBP()
 {
 	if (!MainAnimBPRef)
 		return nullptr;
 	return MainAnimBPRef;
 }
+void UItemAnimLayerInstance::UpdateBlendWeightsData(float DeltaTime)
+{
+	if ((!bRaiseWeaponAfterFiringWhenCrouched && LinkedAnimInstanceProxy.CachedbIsCrouching) || ((!LinkedAnimInstanceProxy.CachedbIsCrouching && LinkedAnimInstanceProxy.CachedbGameplayTagIsADS) && LinkedAnimInstanceProxy.CachedbIsOnGround))
+	{
+		LinkedAnimInstanceProxy.HipFireUpperBodyOverrideWeight = 0.0f;
+		LinkedAnimInstanceProxy.AimOffsetBlendWeight = 1.0f;
+	}
+	else
+	{
+		if ((LinkedAnimInstanceProxy.CachedTimeSinceFiredWeapon < RaiseWeaponAfterFiringWeapon) || (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS && (LinkedAnimInstanceProxy.CachedbIsCrouching || !LinkedAnimInstanceProxy.CachedbIsOnGround)) || (LinkedAnimInstanceProxy.ApplyHipFireCurve > 0.0f))
+		{
+			LinkedAnimInstanceProxy.HipFireUpperBodyOverrideWeight = 1.0f;
+			LinkedAnimInstanceProxy.AimOffsetBlendWeight = 1.0f;
+		}
+		else
+		{
+			LinkedAnimInstanceProxy.HipFireUpperBodyOverrideWeight = FMath::FInterpTo(LinkedAnimInstanceProxy.HipFireUpperBodyOverrideWeight, 0.0f, DeltaTime, 1.0f);
+			float NewAimOffsetBlendWeight = (FMath::Abs(LinkedAnimInstanceProxy.CachedRootYawOffset) < 10.0f && LinkedAnimInstanceProxy.CachedbHasAcceleration) ? LinkedAnimInstanceProxy.HipFireUpperBodyOverrideWeight : 1.0f;
+			LinkedAnimInstanceProxy.AimOffsetBlendWeight = FMath::FInterpTo(LinkedAnimInstanceProxy.AimOffsetBlendWeight, NewAimOffsetBlendWeight, DeltaTime, 10.0f);
+		}
+	}
+}
+void UItemAnimLayerInstance::UpdateJumpFallData(float DeltaTime)
+{
+	if (LinkedAnimInstanceProxy.CachedbIsFalling)
+	{
+		LinkedAnimInstanceProxy.TimeFalling = LinkedAnimInstanceProxy.TimeFalling + DeltaTime;
+	}
+	else
+	{
+		if (LinkedAnimInstanceProxy.CachedbIsJumping)
+		{
+			LinkedAnimInstanceProxy.TimeFalling = 0.0f;
+		}
+	}
+}
+void UItemAnimLayerInstance::UpdateSkelControlData()
+{
+	float HandIKDIsable = bDisableHandIK ? 0.0f : 1.0f;
+	LinkedAnimInstanceProxy.HandIKRightAlpha = FMath::Clamp(HandIKDIsable - LinkedAnimInstanceProxy.DisableRHandCurve, 0.0f, 1.0f);
+	LinkedAnimInstanceProxy.HandIKLeftAlpha = FMath::Clamp(HandIKDIsable - LinkedAnimInstanceProxy.DisableLHandCurve, 0.0f, 1.0f);
+}
 
-//Node Binding Functions
+//Functions to bind to node
 void UItemAnimLayerInstance::SetLeftHandPoseOverrideWeight(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LeftHandOverrideWeight = FMath::Clamp((bEnableLeftHandPoseOverride ? 1.0f : 0.0f) - ItemAnimLayerProxy.DisableLeftHandPoseOverride, 0.0f, 1.0f);
+	LinkedAnimInstanceProxy.LeftHandOverrideWeight = FMath::Clamp((bEnableLeftHandPoseOverride ? 1.0f : 0.0f) - LinkedAnimInstanceProxy.DisableLeftHandPoseOverride, 0.0f, 1.0f);
 }
 void UItemAnimLayerInstance::UpdateHipFireRaiseWeaponPose(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	USequenceEvaluatorLibrary::SetSequence(SequenceEval, ItemAnimLayerProxy.CachedbIsCrouching ? AimHipFirePoseCrouch : AimHipFirePose);
+	USequenceEvaluatorLibrary::SetSequence(SequenceEval, LinkedAnimInstanceProxy.CachedbIsCrouching ? AimHipFirePoseCrouch : AimHipFirePose);
 }
 void UItemAnimLayerInstance::SetUpFallLandAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
@@ -218,47 +168,46 @@ void UItemAnimLayerInstance::UpdateFallLandAnim(const FAnimUpdateContext& Contex
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	UAnimDistanceMatchingLibrary::DistanceMatchToTarget(SequenceEval, ItemAnimLayerProxy.CachedGroundDistance, JumpDistanceCurveName);
+	UAnimDistanceMatchingLibrary::DistanceMatchToTarget(SequenceEval, LinkedAnimInstanceProxy.CachedGroundDistance, JumpDistanceCurveName);
 }
 void UItemAnimLayerInstance::SetUpPivotAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	PivotStartingAcceleration = ItemAnimLayerProxy.CachedLocalAcceleration;
+	LinkedAnimInstanceProxy.PivotStartingAcceleration = LinkedAnimInstanceProxy.CachedLocalAcceleration;
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, GetDesiredPivotSequence(ItemAnimLayerProxy.CachedCardinalDirectionFromAcceleration));
+	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, GetDesiredPivotSequence(LinkedAnimInstanceProxy.CachedCardinalDirectionFromAcceleration));
 	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, 0.0f);
-	StrideWarpingPivotAlpha = 0.0f;
-	TimeAtPivotStop = 0.0f;
-	LastPivotTime = 0.2f;
+	LinkedAnimInstanceProxy.StrideWarpingPivotAlpha = 0.0f;
+	LinkedAnimInstanceProxy.TimeAtPivotStop = 0.0f;
+	//LastPivotTime = 0.2f;
 	bChangeLastPivotTime = true;
 }
 void UItemAnimLayerInstance::UpdatePivotAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
 	float ExplicitTime = USequenceEvaluatorLibrary::GetAccumulatedTime(SequenceEval);
-	if (ItemAnimLayerProxy.CachedLastPivotTime > 0.0f)
+	if (LinkedAnimInstanceProxy.CachedLastPivotTime > 0.0f)
 	{
-		UAnimSequence* NewDesiredSeq = GetDesiredPivotSequence(ItemAnimLayerProxy.CachedCardinalDirectionFromAcceleration);
+		UAnimSequence* NewDesiredSeq = GetDesiredPivotSequence(LinkedAnimInstanceProxy.CachedCardinalDirectionFromAcceleration);
 		if (NewDesiredSeq != USequenceEvaluatorLibrary::GetSequence(SequenceEval))
 		{
 			USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, NewDesiredSeq, 0.2f);
-			PivotStartingAcceleration = ItemAnimLayerProxy.CachedLocalAcceleration;
+			LinkedAnimInstanceProxy.PivotStartingAcceleration = LinkedAnimInstanceProxy.CachedLocalAcceleration;
 		}
 	}
-	if (FVector::DotProduct(ItemAnimLayerProxy.CachedLocalVelocity, ItemAnimLayerProxy.CachedLocalAcceleration) < 0.0f)
+	if (FVector::DotProduct(LinkedAnimInstanceProxy.CachedLocalVelocity, LinkedAnimInstanceProxy.CachedLocalAcceleration) < 0.0f)
 	{
-		float DistanceTarget = UAnimCharacterMovementLibrary::PredictGroundMovementPivotLocation(ItemAnimLayerProxy.CachedCurrentAcceleration, ItemAnimLayerProxy.CachedLastUpdateVelocity, ItemAnimLayerProxy.CachedGroundFriction).Size2D();
+		float DistanceTarget = UAnimCharacterMovementLibrary::PredictGroundMovementPivotLocation(LinkedAnimInstanceProxy.CachedCurrentAcceleration, LinkedAnimInstanceProxy.CachedLastUpdateVelocity, LinkedAnimInstanceProxy.CachedGroundFriction).Size2D();
 		UAnimDistanceMatchingLibrary::DistanceMatchToTarget(SequenceEval, DistanceTarget, LocomotionDistanceCurveName);
-		TimeAtPivotStop = ExplicitTime;
+		LinkedAnimInstanceProxy.TimeAtPivotStop = ExplicitTime;
 		return;
 	}
 	else
 	{
-		StrideWarpingPivotAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - TimeAtPivotStop - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
-		FVector2D Clamp = FVector2D(FMath::Lerp(0.2, PlayRateClampStartsPivots.X, StrideWarpingPivotAlpha), PlayRateClampStartsPivots.Y);
-		UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, ItemAnimLayerProxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
+		LinkedAnimInstanceProxy.StrideWarpingPivotAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - LinkedAnimInstanceProxy.TimeAtPivotStop - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
+		FVector2D Clamp = FVector2D(FMath::Lerp(0.2, PlayRateClampStartsPivots.X, LinkedAnimInstanceProxy.StrideWarpingPivotAlpha), PlayRateClampStartsPivots.Y);
+		UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, LinkedAnimInstanceProxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
 		return;
 	}
 }
@@ -267,9 +216,9 @@ void UItemAnimLayerInstance::SetUpStopAnim(const FAnimUpdateContext& Context, co
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
 
-	if (ItemAnimLayerProxy.CachedbIsCrouching)
+	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
 	{
-		switch (ItemAnimLayerProxy.CachedLocalVelocityDirection)
+		switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
 		{
 		case ECardinalDirection::Forward:
 			USequenceEvaluatorLibrary::SetSequence(SequenceEval, CrouchStopCardinal.Forward);
@@ -287,9 +236,9 @@ void UItemAnimLayerInstance::SetUpStopAnim(const FAnimUpdateContext& Context, co
 	}
 	else
 	{
-		if (ItemAnimLayerProxy.CachedbGameplayTagIsADS)
+		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
 		{
-			switch (ItemAnimLayerProxy.CachedLocalVelocityDirection)
+			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
 			{
 			case ECardinalDirection::Forward:
 				USequenceEvaluatorLibrary::SetSequence(SequenceEval, ADSStopCardinal.Forward);
@@ -307,7 +256,7 @@ void UItemAnimLayerInstance::SetUpStopAnim(const FAnimUpdateContext& Context, co
 		}
 		else
 		{
-			switch (ItemAnimLayerProxy.CachedLocalVelocityDirection)
+			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
 			{
 			case ECardinalDirection::Forward:
 				USequenceEvaluatorLibrary::SetSequence(SequenceEval, JogStopCardinal.Forward);
@@ -326,7 +275,7 @@ void UItemAnimLayerInstance::SetUpStopAnim(const FAnimUpdateContext& Context, co
 	}
 	if (!ShouldDistanceMatchStop())
 		UAnimDistanceMatchingLibrary::DistanceMatchToTarget(SequenceEval, 0.0f, LocomotionDistanceCurveName);
-	
+
 	return;
 }
 void UItemAnimLayerInstance::UpdateStopAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
@@ -334,7 +283,7 @@ void UItemAnimLayerInstance::UpdateStopAnim(const FAnimUpdateContext& Context, c
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
 
-	if(ShouldDistanceMatchStop())
+	if (ShouldDistanceMatchStop())
 	{
 		float DistanceToMatch = GetPredictedStopDistance();
 		if (DistanceToMatch > 0.0f)
@@ -359,9 +308,9 @@ void UItemAnimLayerInstance::UpdateCycleAnim(const FAnimUpdateContext& Context, 
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
 
-	if (ItemAnimLayerProxy.CachedbIsCrouching)
+	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
 	{
-		switch (ItemAnimLayerProxy.CachedLocalVelocityDirectionNoOffset)
+		switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirectionNoOffset)
 		{
 		case ECardinalDirection::Forward:
 			USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, CrouchCardinal.Forward, 0.2f);
@@ -379,9 +328,9 @@ void UItemAnimLayerInstance::UpdateCycleAnim(const FAnimUpdateContext& Context, 
 	}
 	else
 	{
-		if (ItemAnimLayerProxy.CachedbGameplayTagIsADS)
+		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
 		{
-			switch (ItemAnimLayerProxy.CachedLocalVelocityDirectionNoOffset)
+			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirectionNoOffset)
 			{
 			case ECardinalDirection::Forward:
 				USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, ADSCardinal.Forward, 0.2f);
@@ -399,7 +348,7 @@ void UItemAnimLayerInstance::UpdateCycleAnim(const FAnimUpdateContext& Context, 
 		}
 		else
 		{
-			switch (ItemAnimLayerProxy.CachedLocalVelocityDirectionNoOffset)
+			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirectionNoOffset)
 			{
 			case ECardinalDirection::Forward:
 				USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, JogCardinal.Forward, 0.2f);
@@ -416,8 +365,8 @@ void UItemAnimLayerInstance::UpdateCycleAnim(const FAnimUpdateContext& Context, 
 			}
 		}
 	}
-	UAnimDistanceMatchingLibrary::SetPlayrateToMatchSpeed(SequencePlayer, ItemAnimLayerProxy.CachedDisplacementSpeed, PlayRateClampCycle);
-	StrideWarpingCycleAlpha = FMath::FInterpTo(StrideWarpingCycleAlpha, ItemAnimLayerProxy.CachedbIsRunningIntoWall ? 0.5f : 1.0f, Context.GetContext()->GetDeltaTime(), 10.0f);
+	UAnimDistanceMatchingLibrary::SetPlayrateToMatchSpeed(SequencePlayer, LinkedAnimInstanceProxy.CachedDisplacementSpeed, PlayRateClampCycle);
+	LinkedAnimInstanceProxy.StrideWarpingCycleAlpha = FMath::FInterpTo(LinkedAnimInstanceProxy.StrideWarpingCycleAlpha, LinkedAnimInstanceProxy.CachedbIsRunningIntoWall ? 0.5f : 1.0f, Context.GetContext()->GetDeltaTime(), 10.0f);
 	return;
 }
 void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
@@ -425,9 +374,9 @@ void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, c
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
 
-	if (ItemAnimLayerProxy.CachedbIsCrouching)
+	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
 	{
-		switch (ItemAnimLayerProxy.CachedLocalVelocityDirection)
+		switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
 		{
 		case ECardinalDirection::Forward:
 			USequenceEvaluatorLibrary::SetSequence(SequenceEval, CrouchStartCardinal.Forward);
@@ -445,9 +394,9 @@ void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, c
 	}
 	else
 	{
-		if (ItemAnimLayerProxy.CachedbGameplayTagIsADS)
+		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
 		{
-			switch (ItemAnimLayerProxy.CachedLocalVelocityDirection)
+			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
 			{
 			case ECardinalDirection::Forward:
 				USequenceEvaluatorLibrary::SetSequence(SequenceEval, ADSStartCardinal.Forward);
@@ -465,7 +414,7 @@ void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, c
 		}
 		else
 		{
-			switch (ItemAnimLayerProxy.CachedLocalVelocityDirection)
+			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
 			{
 			case ECardinalDirection::Forward:
 				USequenceEvaluatorLibrary::SetSequence(SequenceEval, JogStartCardinal.Forward);
@@ -483,7 +432,7 @@ void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, c
 		}
 	}
 	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, 0.0f);
-	StrideWarpingStartAlpha = 0.0f;
+	LinkedAnimInstanceProxy.StrideWarpingStartAlpha = 0.0f;
 }
 void UItemAnimLayerInstance::UpdateStartAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
@@ -491,9 +440,9 @@ void UItemAnimLayerInstance::UpdateStartAnim(const FAnimUpdateContext& Context, 
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
 
 	float ExplicitTime = USequenceEvaluatorLibrary::GetAccumulatedTime(SequenceEval);
-	StrideWarpingStartAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
-	FVector2D Clamp = FVector2D(FMath::Lerp(StrideWarpingBlendInDurationScaled, PlayRateClampStartsPivots.X, StrideWarpingStartAlpha), PlayRateClampStartsPivots.Y);
-	UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, ItemAnimLayerProxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
+	LinkedAnimInstanceProxy.StrideWarpingStartAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
+	FVector2D Clamp = FVector2D(FMath::Lerp(StrideWarpingBlendInDurationScaled, PlayRateClampStartsPivots.X, LinkedAnimInstanceProxy.StrideWarpingStartAlpha), PlayRateClampStartsPivots.Y);
+	UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, LinkedAnimInstanceProxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
 }
 void UItemAnimLayerInstance::SetUpIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
@@ -513,13 +462,13 @@ void UItemAnimLayerInstance::UpdateIdleAnim(const FAnimUpdateContext& Context, c
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
 
-	if (ItemAnimLayerProxy.CachedbIsCrouching)
+	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
 	{
 		USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, IdleCrouch, 0.2f);
 	}
 	else
 	{
-		if (ItemAnimLayerProxy.CachedbGameplayTagIsADS)
+		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
 		{
 			USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, IdleADS, 0.2f);
 		}
@@ -533,8 +482,7 @@ void UItemAnimLayerInstance::SetUpIdleTransition(const FAnimUpdateContext& Conte
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
-	USequencePlayerLibrary::SetSequence(SequencePlayer, ItemAnimLayerProxy.CachedbIsCrouching ? IdleCrouchEntry : IdleCrouchExit);
-	//UE_LOG(LogTemp, Warning, TEXT("Transtion"));
+	USequencePlayerLibrary::SetSequence(SequencePlayer, LinkedAnimInstanceProxy.CachedbIsCrouching ? IdleCrouchEntry : IdleCrouchExit);
 	return;
 }
 void UItemAnimLayerInstance::SetUpIdleBreakAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
@@ -542,14 +490,14 @@ void UItemAnimLayerInstance::SetUpIdleBreakAnim(const FAnimUpdateContext& Contex
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
 
-	USequencePlayerLibrary::SetSequence(SequencePlayer, IdleBreaks[CurrentIdleBreakIndex]);
-	CurrentIdleBreakIndex++;
-	if (CurrentIdleBreakIndex >= IdleBreaks.Num())
-		CurrentIdleBreakIndex = 0;
+	USequencePlayerLibrary::SetSequence(SequencePlayer, IdleBreaks[LinkedAnimInstanceProxy.CurrentIdleBreakIndex]);
+	LinkedAnimInstanceProxy.CurrentIdleBreakIndex++;
+	if (LinkedAnimInstanceProxy.CurrentIdleBreakIndex >= IdleBreaks.Num())
+		LinkedAnimInstanceProxy.CurrentIdleBreakIndex = 0;
 }
 void UItemAnimLayerInstance::SetUpTurnInPlaceAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	TurnInPlaceAnimTime = 0.0f;
+	LinkedAnimInstanceProxy.TurnInPlaceAnimTime = 0.0f;
 
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
@@ -559,68 +507,68 @@ void UItemAnimLayerInstance::UpdateTurnInPlaceAnim(const FAnimUpdateContext& Con
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, SelectTurnInPlaceAnimation(TurnInPlaceRotationDirection), 0.2f);
-	TurnInPlaceAnimTime = TurnInPlaceAnimTime + Context.GetContext()->GetDeltaTime();
-	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, TurnInPlaceAnimTime);
+	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, SelectTurnInPlaceAnimation(LinkedAnimInstanceProxy.TurnInPlaceRotationDirection), 0.2f);
+	LinkedAnimInstanceProxy.TurnInPlaceAnimTime = LinkedAnimInstanceProxy.TurnInPlaceAnimTime + Context.GetContext()->GetDeltaTime();
+	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, LinkedAnimInstanceProxy.TurnInPlaceAnimTime);
 }
 void UItemAnimLayerInstance::SetUpTurnInPlaceRotationState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	TurnInPlaceRotationDirection = FMath::Sign(ItemAnimLayerProxy.CachedRootYawOffset) * -1.0f;
+	LinkedAnimInstanceProxy.TurnInPlaceRotationDirection = FMath::Sign(LinkedAnimInstanceProxy.CachedRootYawOffset) * -1.0f;
 }
 void UItemAnimLayerInstance::UpdateTurnInPlaceRecoveryAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
-	USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, SelectTurnInPlaceAnimation(TurnInPlaceRecoveryDirection), 0.2f);
+	USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, SelectTurnInPlaceAnimation(LinkedAnimInstanceProxy.TurnInPlaceRecoveryDirection), 0.2f);
 }
 void UItemAnimLayerInstance::SetUpTurnInPlaceRecoveryState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	TurnInPlaceRecoveryDirection = TurnInPlaceRotationDirection;
+	LinkedAnimInstanceProxy.TurnInPlaceRecoveryDirection = LinkedAnimInstanceProxy.TurnInPlaceRotationDirection;
 }
 void UItemAnimLayerInstance::LandRecoveryStart(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LandRecoveryAlpha = UKismetMathLibrary::MapRangeClamped(ItemAnimLayerProxy.TimeFalling, 0.0f, 0.4f, 0.1f, 1.0f) * (ItemAnimLayerProxy.CachedbIsCrouching ? 0.5f : 1.0f);
+	LinkedAnimInstanceProxy.LandRecoveryAlpha = UKismetMathLibrary::MapRangeClamped(LinkedAnimInstanceProxy.TimeFalling, 0.0f, 0.4f, 0.1f, 1.0f) * (LinkedAnimInstanceProxy.CachedbIsCrouching ? 0.5f : 1.0f);
 }
 
-//Helper Functions
+//Helper functions
 bool UItemAnimLayerInstance::ShouldEnableFootPlacement() const
 {
 	if (MainAnimBPRef == nullptr)
 		return false;
 	else
-		return (ItemAnimLayerProxy.DisableLegCurve <= 0 && ItemAnimLayerProxy.CachedbUseFootPlacement);
+		return (LinkedAnimInstanceProxy.DisableLegCurve <= 0 && LinkedAnimInstanceProxy.CachedbUseFootPlacement);
 }
 bool UItemAnimLayerInstance::ShouldDistanceMatchStop() const
 {
-	return ItemAnimLayerProxy.CachedbHasVelocity && !ItemAnimLayerProxy.CachedbHasAcceleration;
+	return LinkedAnimInstanceProxy.CachedbHasVelocity && !LinkedAnimInstanceProxy.CachedbHasAcceleration;
 }
 float UItemAnimLayerInstance::GetPredictedStopDistance() const
 {
-	FVector Prediction = UAnimCharacterMovementLibrary::PredictGroundMovementStopLocation(ItemAnimLayerProxy.CachedLastUpdateVelocity, ItemAnimLayerProxy.CachedbUseSeperateBrakingFriction, ItemAnimLayerProxy.CachedBrakingFriction, ItemAnimLayerProxy.CachedGroundFriction, ItemAnimLayerProxy.CachedBrakingFrictionFactor, ItemAnimLayerProxy.CachedBrakingDecelerationWalking);
+	FVector Prediction = UAnimCharacterMovementLibrary::PredictGroundMovementStopLocation(LinkedAnimInstanceProxy.CachedLastUpdateVelocity, LinkedAnimInstanceProxy.CachedbUseSeperateBrakingFriction, LinkedAnimInstanceProxy.CachedBrakingFriction, LinkedAnimInstanceProxy.CachedGroundFriction, LinkedAnimInstanceProxy.CachedBrakingFrictionFactor, LinkedAnimInstanceProxy.CachedBrakingDecelerationWalking);
 	return Prediction.Size2D();
 }
 void UItemAnimLayerInstance::ChooseIdleBreakDelayTime()
 {
-	IdleBreakDelayTime = (FMath::TruncToInt(FMath::Abs(ItemAnimLayerProxy.CachedWorldLocation.X + ItemAnimLayerProxy.CachedWorldLocation.Y)) % 10) + 6.0f;
+	LinkedAnimInstanceProxy.IdleBreakDelayTime = (FMath::TruncToInt(FMath::Abs(LinkedAnimInstanceProxy.CachedWorldLocation.X + LinkedAnimInstanceProxy.CachedWorldLocation.Y)) % 10) + 6.0f;
 }
 bool UItemAnimLayerInstance::CanPlayIdleBreak() const
 {
-	return (IdleBreaks.Num() > 0) && !(ItemAnimLayerProxy.CachedbIsCrouching || ItemAnimLayerProxy.CachedbGameplayTagIsADS || ItemAnimLayerProxy.CachedbGameplayTagIsFiring || ItemAnimLayerProxy.CachedbIsAnyMontagePlaying || ItemAnimLayerProxy.CachedbHasVelocity || ItemAnimLayerProxy.CachedbIsJumping);
+	return (IdleBreaks.Num() > 0) && !(LinkedAnimInstanceProxy.CachedbIsCrouching || LinkedAnimInstanceProxy.CachedbGameplayTagIsADS || LinkedAnimInstanceProxy.CachedbGameplayTagIsFiring || LinkedAnimInstanceProxy.CachedbIsAnyMontagePlaying || LinkedAnimInstanceProxy.CachedbHasVelocity || LinkedAnimInstanceProxy.CachedbIsJumping);
 }
 void UItemAnimLayerInstance::ResetIdleBreakTransitionLogic()
 {
-	TimeUntilNextIdleBreak = IdleBreakDelayTime;
+	LinkedAnimInstanceProxy.TimeUntilNextIdleBreak = LinkedAnimInstanceProxy.IdleBreakDelayTime;
 }
 void UItemAnimLayerInstance::ProcessIdleBreakTransitionLogic(float DeltaTime)
 {
 	if (CanPlayIdleBreak())
-		TimeUntilNextIdleBreak = TimeUntilNextIdleBreak - DeltaTime;
+		LinkedAnimInstanceProxy.TimeUntilNextIdleBreak = LinkedAnimInstanceProxy.TimeUntilNextIdleBreak - DeltaTime;
 	else
 		ResetIdleBreakTransitionLogic();
 }
 UAnimSequence* UItemAnimLayerInstance::GetDesiredPivotSequence(ECardinalDirection InDirection) const
 {
-	if (ItemAnimLayerProxy.CachedbIsCrouching)
+	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
 	{
 		switch (InDirection)
 		{
@@ -640,7 +588,7 @@ UAnimSequence* UItemAnimLayerInstance::GetDesiredPivotSequence(ECardinalDirectio
 	}
 	else
 	{
-		if (ItemAnimLayerProxy.CachedbGameplayTagIsADS)
+		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
 		{
 			switch (InDirection)
 			{
@@ -682,8 +630,11 @@ UAnimSequence* UItemAnimLayerInstance::GetDesiredPivotSequence(ECardinalDirectio
 UAnimSequence* UItemAnimLayerInstance::SelectTurnInPlaceAnimation(float Direction)
 {
 	if (Direction > 0.0f)
-		return ItemAnimLayerProxy.CachedbIsCrouching ? CrouchTurnInPlaceRight : TurnInPlaceRight;
+		return LinkedAnimInstanceProxy.CachedbIsCrouching ? CrouchTurnInPlaceRight : TurnInPlaceRight;
 	else
-		return ItemAnimLayerProxy.CachedbIsCrouching ? CrouchTurnInPlaceLeft : TurnInPlaceLeft;
+		return LinkedAnimInstanceProxy.CachedbIsCrouching ? CrouchTurnInPlaceLeft : TurnInPlaceLeft;
 }
-
+float UItemAnimLayerInstance::GetHipFireUpperBodyOverrideWeight() const
+{
+	return LinkedAnimInstanceProxy.HipFireUpperBodyOverrideWeight;
+}
