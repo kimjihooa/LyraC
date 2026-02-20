@@ -272,7 +272,7 @@ protected:
 public:
 	//Helper functions
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions", meta = (BlueprintThreadSafe))
-	bool IsMovingPerpendicularToInitialPivot() const;
+	bool IsMovingPerpendicularToInitialPivot();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
 	ECardinalDirection GetOppositeCardinalDirection(const ECardinalDirection CurrentDir);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HelperFunctions")
@@ -341,5 +341,7 @@ public:
 	ECardinalDirection GetCardinalDirectionFromAcceleration() const;
 	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	ECardinalDirection GetStartDirection() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	ERootYawOffsetMode GetRootYawOffsetMode() const;
 	void SetLastPivotTime();
 };

@@ -319,8 +319,10 @@ ECardinalDirection UCharacterAnimInstance::GetOppositeCardinalDirection(const EC
 	}
 	return ECardinalDirection::Forward;
 }
-bool UCharacterAnimInstance::IsMovingPerpendicularToInitialPivot() const
+bool UCharacterAnimInstance::IsMovingPerpendicularToInitialPivot()
 {
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+
 	bool PivotFB = (MainAnimInstanceProxy.PivotInitialDirection == ECardinalDirection::Forward) || (MainAnimInstanceProxy.PivotInitialDirection == ECardinalDirection::Backward);
 	bool VelocityFB = (MainAnimInstanceProxy.LocalVelocityDirection == ECardinalDirection::Forward) || (MainAnimInstanceProxy.LocalVelocityDirection == ECardinalDirection::Backward);
 	bool PivotLR = (MainAnimInstanceProxy.PivotInitialDirection == ECardinalDirection::Left) || (MainAnimInstanceProxy.PivotInitialDirection == ECardinalDirection::Right);
@@ -329,40 +331,44 @@ bool UCharacterAnimInstance::IsMovingPerpendicularToInitialPivot() const
 }
 void UCharacterAnimInstance::SetRootYawOffset(float InRootYawOffset)
 {
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+
 	if (!bEnableRootYawOffset)
 	{
-		MainAnimInstanceProxy.RootYawOffset = 0.0f;
-		MainAnimInstanceProxy.AimYaw = 0.0f;
+		Proxy.RootYawOffset = 0.0f;
+		Proxy.AimYaw = 0.0f;
 	}
 	else
 	{
-		FVector2D Clamp = MainAnimInstanceProxy.bIsCrouching ? MainAnimInstanceProxy.RootYawOffsetAngleClampCrouched : MainAnimInstanceProxy.RootYawOffsetAngleClamp;
+		FVector2D Clamp = Proxy.bIsCrouching ? Proxy.RootYawOffsetAngleClampCrouched : Proxy.RootYawOffsetAngleClamp;
 		float Normalized = UKismetMathLibrary::NormalizeAxis(InRootYawOffset);
 		float Clamped = UKismetMathLibrary::ClampAngle(Normalized, Clamp.X, Clamp.Y);
-		MainAnimInstanceProxy.RootYawOffset = Clamp.X == Clamp.Y ? Normalized : Clamped;
-		MainAnimInstanceProxy.AimYaw = MainAnimInstanceProxy.RootYawOffset * -1.0f;
+		Proxy.RootYawOffset = Clamp.X == Clamp.Y ? Normalized : Clamped;
+		Proxy.AimYaw = Proxy.RootYawOffset * -1.0f;
 	}
 }
 void UCharacterAnimInstance::ProcessTurnYawCurve()
 {
-	float PreviousTurnYawCurveValue = MainAnimInstanceProxy.TurnYawCurveValue;
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
 
-	float TurnYawWeight = MainAnimInstanceProxy.TurnYawWeightCurve;
+	float PreviousTurnYawCurveValue = Proxy.TurnYawCurveValue;
+	float TurnYawWeight = Proxy.TurnYawWeightCurve;
 	if (UKismetMathLibrary::NearlyEqual_FloatFloat(TurnYawWeight, 0.0f))
 	{
-		MainAnimInstanceProxy.TurnYawCurveValue = 0.0f;
+		Proxy.TurnYawCurveValue = 0.0f;
 		PreviousTurnYawCurveValue = 0.0f;
 	}
 	else
 	{
-		MainAnimInstanceProxy.TurnYawCurveValue = MainAnimInstanceProxy.RemainingTurnYawCurve / TurnYawWeight;
+		Proxy.TurnYawCurveValue = Proxy.RemainingTurnYawCurve / TurnYawWeight;
 		if (PreviousTurnYawCurveValue != 0.0f)
-			SetRootYawOffset(MainAnimInstanceProxy.RootYawOffset - (MainAnimInstanceProxy.TurnYawCurveValue - PreviousTurnYawCurveValue));
+			SetRootYawOffset(Proxy.RootYawOffset - (Proxy.TurnYawCurveValue - PreviousTurnYawCurveValue));
 	}
 }
 bool UCharacterAnimInstance::ShouldEnableControlRig()
 {
-	return (MainAnimInstanceProxy.DisableLegIKCurve <= 0.0f) && !bUseFootPlacement;
+	FMainAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FMainAnimInstanceProxy>();
+	return (Proxy.DisableLegIKCurve <= 0.0f) && !bUseFootPlacement;
 }
 
 //Getter functions
@@ -497,6 +503,10 @@ ECardinalDirection UCharacterAnimInstance::GetCardinalDirectionFromAcceleration(
 ECardinalDirection UCharacterAnimInstance::GetStartDirection() const
 {
 	return MainAnimInstanceProxy.StartDirection;
+}
+ERootYawOffsetMode UCharacterAnimInstance::GetRootYawOffsetMode() const
+{
+	return MainAnimInstanceProxy.RootYawOffsetMode;
 }
 void UCharacterAnimInstance::SetLastPivotTime()
 {

@@ -232,21 +232,21 @@ protected:
 
 	//Helper functions
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool ShouldEnableFootPlacement() const;
+	bool ShouldEnableFootPlacement();
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool ShouldDistanceMatchStop() const;
+	bool ShouldDistanceMatchStop();
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	float GetPredictedStopDistance() const;
+	float GetPredictedStopDistance();
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
 	void ChooseIdleBreakDelayTime();
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	bool CanPlayIdleBreak() const;
+	bool CanPlayIdleBreak();
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
 	void ResetIdleBreakTransitionLogic();
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
 	void ProcessIdleBreakTransitionLogic(float DeltaTime);
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
-	UAnimSequence* GetDesiredPivotSequence(ECardinalDirection InDirection) const;
+	UAnimSequence* GetDesiredPivotSequence(ECardinalDirection InDirection);
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
 	UAnimSequence* SelectTurnInPlaceAnimation(float Direction);
 	bool bChangeLastPivotTime = false;

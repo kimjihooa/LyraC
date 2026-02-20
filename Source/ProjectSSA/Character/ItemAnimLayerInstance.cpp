@@ -150,35 +150,45 @@ void UItemAnimLayerInstance::UpdateSkelControlData()
 //Functions to bind to node
 void UItemAnimLayerInstance::SetLeftHandPoseOverrideWeight(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LinkedAnimInstanceProxy.LeftHandOverrideWeight = FMath::Clamp((bEnableLeftHandPoseOverride ? 1.0f : 0.0f) - LinkedAnimInstanceProxy.DisableLeftHandPoseOverride, 0.0f, 1.0f);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
+	Proxy.LeftHandOverrideWeight = FMath::Clamp((bEnableLeftHandPoseOverride ? 1.0f : 0.0f) - Proxy.DisableLeftHandPoseOverride, 0.0f, 1.0f);
 }
 void UItemAnimLayerInstance::UpdateHipFireRaiseWeaponPose(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	USequenceEvaluatorLibrary::SetSequence(SequenceEval, LinkedAnimInstanceProxy.CachedbIsCrouching ? AimHipFirePoseCrouch : AimHipFirePose);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
+	USequenceEvaluatorLibrary::SetSequence(SequenceEval, Proxy.CachedbIsCrouching ? AimHipFirePoseCrouch : AimHipFirePose);
 }
 void UItemAnimLayerInstance::SetUpFallLandAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
 	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, 0.0f);
 }
 void UItemAnimLayerInstance::UpdateFallLandAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	UAnimDistanceMatchingLibrary::DistanceMatchToTarget(SequenceEval, LinkedAnimInstanceProxy.CachedGroundDistance, JumpDistanceCurveName);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
+	UAnimDistanceMatchingLibrary::DistanceMatchToTarget(SequenceEval, Proxy.CachedGroundDistance, JumpDistanceCurveName);
 }
 void UItemAnimLayerInstance::SetUpPivotAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LinkedAnimInstanceProxy.PivotStartingAcceleration = LinkedAnimInstanceProxy.CachedLocalAcceleration;
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, GetDesiredPivotSequence(LinkedAnimInstanceProxy.CachedCardinalDirectionFromAcceleration));
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
+	Proxy.PivotStartingAcceleration = Proxy.CachedLocalAcceleration;
+	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, GetDesiredPivotSequence(Proxy.CachedCardinalDirectionFromAcceleration));
 	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, 0.0f);
-	LinkedAnimInstanceProxy.StrideWarpingPivotAlpha = 0.0f;
-	LinkedAnimInstanceProxy.TimeAtPivotStop = 0.0f;
+	Proxy.StrideWarpingPivotAlpha = 0.0f;
+	Proxy.TimeAtPivotStop = 0.0f;
 	//LastPivotTime = 0.2f;
 	bChangeLastPivotTime = true;
 }
@@ -186,28 +196,30 @@ void UItemAnimLayerInstance::UpdatePivotAnim(const FAnimUpdateContext& Context, 
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
 	float ExplicitTime = USequenceEvaluatorLibrary::GetAccumulatedTime(SequenceEval);
-	if (LinkedAnimInstanceProxy.CachedLastPivotTime > 0.0f)
+	if (Proxy.CachedLastPivotTime > 0.0f)
 	{
-		UAnimSequence* NewDesiredSeq = GetDesiredPivotSequence(LinkedAnimInstanceProxy.CachedCardinalDirectionFromAcceleration);
+		UAnimSequence* NewDesiredSeq = GetDesiredPivotSequence(Proxy.CachedCardinalDirectionFromAcceleration);
 		if (NewDesiredSeq != USequenceEvaluatorLibrary::GetSequence(SequenceEval))
 		{
 			USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, NewDesiredSeq, 0.2f);
-			LinkedAnimInstanceProxy.PivotStartingAcceleration = LinkedAnimInstanceProxy.CachedLocalAcceleration;
+			Proxy.PivotStartingAcceleration = Proxy.CachedLocalAcceleration;
 		}
 	}
-	if (FVector::DotProduct(LinkedAnimInstanceProxy.CachedLocalVelocity, LinkedAnimInstanceProxy.CachedLocalAcceleration) < 0.0f)
+	if (FVector::DotProduct(Proxy.CachedLocalVelocity, Proxy.CachedLocalAcceleration) < 0.0f)
 	{
-		float DistanceTarget = UAnimCharacterMovementLibrary::PredictGroundMovementPivotLocation(LinkedAnimInstanceProxy.CachedCurrentAcceleration, LinkedAnimInstanceProxy.CachedLastUpdateVelocity, LinkedAnimInstanceProxy.CachedGroundFriction).Size2D();
+		float DistanceTarget = UAnimCharacterMovementLibrary::PredictGroundMovementPivotLocation(Proxy.CachedCurrentAcceleration, Proxy.CachedLastUpdateVelocity, Proxy.CachedGroundFriction).Size2D();
 		UAnimDistanceMatchingLibrary::DistanceMatchToTarget(SequenceEval, DistanceTarget, LocomotionDistanceCurveName);
-		LinkedAnimInstanceProxy.TimeAtPivotStop = ExplicitTime;
+		Proxy.TimeAtPivotStop = ExplicitTime;
 		return;
 	}
 	else
 	{
-		LinkedAnimInstanceProxy.StrideWarpingPivotAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - LinkedAnimInstanceProxy.TimeAtPivotStop - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
-		FVector2D Clamp = FVector2D(FMath::Lerp(0.2, PlayRateClampStartsPivots.X, LinkedAnimInstanceProxy.StrideWarpingPivotAlpha), PlayRateClampStartsPivots.Y);
-		UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, LinkedAnimInstanceProxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
+		Proxy.StrideWarpingPivotAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - Proxy.TimeAtPivotStop - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
+		FVector2D Clamp = FVector2D(FMath::Lerp(0.2, PlayRateClampStartsPivots.X, Proxy.StrideWarpingPivotAlpha), PlayRateClampStartsPivots.Y);
+		UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, Proxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
 		return;
 	}
 }
@@ -215,10 +227,11 @@ void UItemAnimLayerInstance::SetUpStopAnim(const FAnimUpdateContext& Context, co
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
 
-	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
+	if (Proxy.CachedbIsCrouching)
 	{
-		switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
+		switch (Proxy.CachedLocalVelocityDirection)
 		{
 		case ECardinalDirection::Forward:
 			USequenceEvaluatorLibrary::SetSequence(SequenceEval, CrouchStopCardinal.Forward);
@@ -236,9 +249,9 @@ void UItemAnimLayerInstance::SetUpStopAnim(const FAnimUpdateContext& Context, co
 	}
 	else
 	{
-		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
+		if (Proxy.CachedbGameplayTagIsADS)
 		{
-			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
+			switch (Proxy.CachedLocalVelocityDirection)
 			{
 			case ECardinalDirection::Forward:
 				USequenceEvaluatorLibrary::SetSequence(SequenceEval, ADSStopCardinal.Forward);
@@ -256,7 +269,7 @@ void UItemAnimLayerInstance::SetUpStopAnim(const FAnimUpdateContext& Context, co
 		}
 		else
 		{
-			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
+			switch (Proxy.CachedLocalVelocityDirection)
 			{
 			case ECardinalDirection::Forward:
 				USequenceEvaluatorLibrary::SetSequence(SequenceEval, JogStopCardinal.Forward);
@@ -282,6 +295,7 @@ void UItemAnimLayerInstance::UpdateStopAnim(const FAnimUpdateContext& Context, c
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
 
 	if (ShouldDistanceMatchStop())
 	{
@@ -307,10 +321,11 @@ void UItemAnimLayerInstance::UpdateCycleAnim(const FAnimUpdateContext& Context, 
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
 
-	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
+	if (Proxy.CachedbIsCrouching)
 	{
-		switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirectionNoOffset)
+		switch (Proxy.CachedLocalVelocityDirectionNoOffset)
 		{
 		case ECardinalDirection::Forward:
 			USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, CrouchCardinal.Forward, 0.2f);
@@ -328,9 +343,9 @@ void UItemAnimLayerInstance::UpdateCycleAnim(const FAnimUpdateContext& Context, 
 	}
 	else
 	{
-		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
+		if (Proxy.CachedbGameplayTagIsADS)
 		{
-			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirectionNoOffset)
+			switch (Proxy.CachedLocalVelocityDirectionNoOffset)
 			{
 			case ECardinalDirection::Forward:
 				USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, ADSCardinal.Forward, 0.2f);
@@ -348,7 +363,7 @@ void UItemAnimLayerInstance::UpdateCycleAnim(const FAnimUpdateContext& Context, 
 		}
 		else
 		{
-			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirectionNoOffset)
+			switch (Proxy.CachedLocalVelocityDirectionNoOffset)
 			{
 			case ECardinalDirection::Forward:
 				USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, JogCardinal.Forward, 0.2f);
@@ -365,18 +380,19 @@ void UItemAnimLayerInstance::UpdateCycleAnim(const FAnimUpdateContext& Context, 
 			}
 		}
 	}
-	UAnimDistanceMatchingLibrary::SetPlayrateToMatchSpeed(SequencePlayer, LinkedAnimInstanceProxy.CachedDisplacementSpeed, PlayRateClampCycle);
-	LinkedAnimInstanceProxy.StrideWarpingCycleAlpha = FMath::FInterpTo(LinkedAnimInstanceProxy.StrideWarpingCycleAlpha, LinkedAnimInstanceProxy.CachedbIsRunningIntoWall ? 0.5f : 1.0f, Context.GetContext()->GetDeltaTime(), 10.0f);
+	UAnimDistanceMatchingLibrary::SetPlayrateToMatchSpeed(SequencePlayer, Proxy.CachedDisplacementSpeed, PlayRateClampCycle);
+	Proxy.StrideWarpingCycleAlpha = FMath::FInterpTo(Proxy.StrideWarpingCycleAlpha, Proxy.CachedbIsRunningIntoWall ? 0.5f : 1.0f, Context.GetContext()->GetDeltaTime(), 10.0f);
 	return;
 }
 void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
 
-	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
+	if (Proxy.CachedbIsCrouching)
 	{
-		switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
+		switch (Proxy.CachedLocalVelocityDirection)
 		{
 		case ECardinalDirection::Forward:
 			USequenceEvaluatorLibrary::SetSequence(SequenceEval, CrouchStartCardinal.Forward);
@@ -394,9 +410,9 @@ void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, c
 	}
 	else
 	{
-		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
+		if (Proxy.CachedbGameplayTagIsADS)
 		{
-			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
+			switch (Proxy.CachedLocalVelocityDirection)
 			{
 			case ECardinalDirection::Forward:
 				USequenceEvaluatorLibrary::SetSequence(SequenceEval, ADSStartCardinal.Forward);
@@ -414,7 +430,7 @@ void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, c
 		}
 		else
 		{
-			switch (LinkedAnimInstanceProxy.CachedLocalVelocityDirection)
+			switch (Proxy.CachedLocalVelocityDirection)
 			{
 			case ECardinalDirection::Forward:
 				USequenceEvaluatorLibrary::SetSequence(SequenceEval, JogStartCardinal.Forward);
@@ -432,17 +448,18 @@ void UItemAnimLayerInstance::SetUpStartAnim(const FAnimUpdateContext& Context, c
 		}
 	}
 	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, 0.0f);
-	LinkedAnimInstanceProxy.StrideWarpingStartAlpha = 0.0f;
+	Proxy.StrideWarpingStartAlpha = 0.0f;
 }
 void UItemAnimLayerInstance::UpdateStartAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
 
 	float ExplicitTime = USequenceEvaluatorLibrary::GetAccumulatedTime(SequenceEval);
-	LinkedAnimInstanceProxy.StrideWarpingStartAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
-	FVector2D Clamp = FVector2D(FMath::Lerp(StrideWarpingBlendInDurationScaled, PlayRateClampStartsPivots.X, LinkedAnimInstanceProxy.StrideWarpingStartAlpha), PlayRateClampStartsPivots.Y);
-	UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, LinkedAnimInstanceProxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
+	Proxy.StrideWarpingStartAlpha = UKismetMathLibrary::MapRangeClamped(ExplicitTime - StrideWarpingBlendInStartOffset, 0.0f, StrideWarpingBlendInDurationScaled, 0.0f, 1.0f);
+	FVector2D Clamp = FVector2D(FMath::Lerp(StrideWarpingBlendInDurationScaled, PlayRateClampStartsPivots.X, Proxy.StrideWarpingStartAlpha), PlayRateClampStartsPivots.Y);
+	UAnimDistanceMatchingLibrary::AdvanceTimeByDistanceMatching(Context, SequenceEval, Proxy.CachedDisplacementSinceLastUpdate, LocomotionDistanceCurveName, Clamp);
 }
 void UItemAnimLayerInstance::SetUpIdleState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
@@ -461,14 +478,15 @@ void UItemAnimLayerInstance::UpdateIdleAnim(const FAnimUpdateContext& Context, c
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
 
-	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
+	if (Proxy.CachedbIsCrouching)
 	{
 		USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, IdleCrouch, 0.2f);
 	}
 	else
 	{
-		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
+		if (Proxy.CachedbGameplayTagIsADS)
 		{
 			USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, IdleADS, 0.2f);
 		}
@@ -482,93 +500,115 @@ void UItemAnimLayerInstance::SetUpIdleTransition(const FAnimUpdateContext& Conte
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
-	USequencePlayerLibrary::SetSequence(SequencePlayer, LinkedAnimInstanceProxy.CachedbIsCrouching ? IdleCrouchEntry : IdleCrouchExit);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
+	USequencePlayerLibrary::SetSequence(SequencePlayer, Proxy.CachedbIsCrouching ? IdleCrouchEntry : IdleCrouchExit);
 	return;
 }
 void UItemAnimLayerInstance::SetUpIdleBreakAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
 
-	USequencePlayerLibrary::SetSequence(SequencePlayer, IdleBreaks[LinkedAnimInstanceProxy.CurrentIdleBreakIndex]);
-	LinkedAnimInstanceProxy.CurrentIdleBreakIndex++;
-	if (LinkedAnimInstanceProxy.CurrentIdleBreakIndex >= IdleBreaks.Num())
-		LinkedAnimInstanceProxy.CurrentIdleBreakIndex = 0;
+	USequencePlayerLibrary::SetSequence(SequencePlayer, IdleBreaks[Proxy.CurrentIdleBreakIndex]);
+	Proxy.CurrentIdleBreakIndex++;
+	if (Proxy.CurrentIdleBreakIndex >= IdleBreaks.Num())
+		Proxy.CurrentIdleBreakIndex = 0;
 }
 void UItemAnimLayerInstance::SetUpTurnInPlaceAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LinkedAnimInstanceProxy.TurnInPlaceAnimTime = 0.0f;
-
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	
+	Proxy.TurnInPlaceAnimTime = 0.0f;
 	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, 0.0f);
 }
 void UItemAnimLayerInstance::UpdateTurnInPlaceAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequenceEvaluatorReference SequenceEval = USequenceEvaluatorLibrary::ConvertToSequenceEvaluator(Node, Result);
-	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, SelectTurnInPlaceAnimation(LinkedAnimInstanceProxy.TurnInPlaceRotationDirection), 0.2f);
-	LinkedAnimInstanceProxy.TurnInPlaceAnimTime = LinkedAnimInstanceProxy.TurnInPlaceAnimTime + Context.GetContext()->GetDeltaTime();
-	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, LinkedAnimInstanceProxy.TurnInPlaceAnimTime);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
+	USequenceEvaluatorLibrary::SetSequenceWithInertialBlending(Context, SequenceEval, SelectTurnInPlaceAnimation(Proxy.TurnInPlaceRotationDirection), 0.2f);
+	Proxy.TurnInPlaceAnimTime = Proxy.TurnInPlaceAnimTime + Context.GetContext()->GetDeltaTime();
+	USequenceEvaluatorLibrary::SetExplicitTime(SequenceEval, Proxy.TurnInPlaceAnimTime);
 }
 void UItemAnimLayerInstance::SetUpTurnInPlaceRotationState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LinkedAnimInstanceProxy.TurnInPlaceRotationDirection = FMath::Sign(LinkedAnimInstanceProxy.CachedRootYawOffset) * -1.0f;
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	Proxy.TurnInPlaceRotationDirection = FMath::Sign(Proxy.CachedRootYawOffset) * -1.0f;
 }
 void UItemAnimLayerInstance::UpdateTurnInPlaceRecoveryAnim(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	EAnimNodeReferenceConversionResult Result;
 	FSequencePlayerReference SequencePlayer = USequencePlayerLibrary::ConvertToSequencePlayer(Node, Result);
-	USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, SelectTurnInPlaceAnimation(LinkedAnimInstanceProxy.TurnInPlaceRecoveryDirection), 0.2f);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
+	USequencePlayerLibrary::SetSequenceWithInertialBlending(Context, SequencePlayer, SelectTurnInPlaceAnimation(Proxy.TurnInPlaceRecoveryDirection), 0.2f);
 }
 void UItemAnimLayerInstance::SetUpTurnInPlaceRecoveryState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LinkedAnimInstanceProxy.TurnInPlaceRecoveryDirection = LinkedAnimInstanceProxy.TurnInPlaceRotationDirection;
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	Proxy.TurnInPlaceRecoveryDirection = Proxy.TurnInPlaceRotationDirection;
 }
 void UItemAnimLayerInstance::LandRecoveryStart(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
-	LinkedAnimInstanceProxy.LandRecoveryAlpha = UKismetMathLibrary::MapRangeClamped(LinkedAnimInstanceProxy.TimeFalling, 0.0f, 0.4f, 0.1f, 1.0f) * (LinkedAnimInstanceProxy.CachedbIsCrouching ? 0.5f : 1.0f);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	Proxy.LandRecoveryAlpha = UKismetMathLibrary::MapRangeClamped(Proxy.TimeFalling, 0.0f, 0.4f, 0.1f, 1.0f) * (Proxy.CachedbIsCrouching ? 0.5f : 1.0f);
 }
 
 //Helper functions
-bool UItemAnimLayerInstance::ShouldEnableFootPlacement() const
+bool UItemAnimLayerInstance::ShouldEnableFootPlacement()
 {
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
 	if (MainAnimBPRef == nullptr)
 		return false;
 	else
-		return (LinkedAnimInstanceProxy.DisableLegCurve <= 0 && LinkedAnimInstanceProxy.CachedbUseFootPlacement);
+		return (Proxy.DisableLegCurve <= 0 && Proxy.CachedbUseFootPlacement);
 }
-bool UItemAnimLayerInstance::ShouldDistanceMatchStop() const
+bool UItemAnimLayerInstance::ShouldDistanceMatchStop()
 {
-	return LinkedAnimInstanceProxy.CachedbHasVelocity && !LinkedAnimInstanceProxy.CachedbHasAcceleration;
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	return Proxy.CachedbHasVelocity && !Proxy.CachedbHasAcceleration;
 }
-float UItemAnimLayerInstance::GetPredictedStopDistance() const
+float UItemAnimLayerInstance::GetPredictedStopDistance()
 {
-	FVector Prediction = UAnimCharacterMovementLibrary::PredictGroundMovementStopLocation(LinkedAnimInstanceProxy.CachedLastUpdateVelocity, LinkedAnimInstanceProxy.CachedbUseSeperateBrakingFriction, LinkedAnimInstanceProxy.CachedBrakingFriction, LinkedAnimInstanceProxy.CachedGroundFriction, LinkedAnimInstanceProxy.CachedBrakingFrictionFactor, LinkedAnimInstanceProxy.CachedBrakingDecelerationWalking);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	FVector Prediction = UAnimCharacterMovementLibrary::PredictGroundMovementStopLocation(Proxy.CachedLastUpdateVelocity, Proxy.CachedbUseSeperateBrakingFriction, Proxy.CachedBrakingFriction, Proxy.CachedGroundFriction, Proxy.CachedBrakingFrictionFactor, Proxy.CachedBrakingDecelerationWalking);
 	return Prediction.Size2D();
 }
 void UItemAnimLayerInstance::ChooseIdleBreakDelayTime()
 {
-	LinkedAnimInstanceProxy.IdleBreakDelayTime = (FMath::TruncToInt(FMath::Abs(LinkedAnimInstanceProxy.CachedWorldLocation.X + LinkedAnimInstanceProxy.CachedWorldLocation.Y)) % 10) + 6.0f;
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
+	Proxy.IdleBreakDelayTime = (FMath::TruncToInt(FMath::Abs(Proxy.CachedWorldLocation.X + Proxy.CachedWorldLocation.Y)) % 10) + 6.0f;
 }
-bool UItemAnimLayerInstance::CanPlayIdleBreak() const
+bool UItemAnimLayerInstance::CanPlayIdleBreak()
 {
-	return (IdleBreaks.Num() > 0) && !(LinkedAnimInstanceProxy.CachedbIsCrouching || LinkedAnimInstanceProxy.CachedbGameplayTagIsADS || LinkedAnimInstanceProxy.CachedbGameplayTagIsFiring || LinkedAnimInstanceProxy.CachedbIsAnyMontagePlaying || LinkedAnimInstanceProxy.CachedbHasVelocity || LinkedAnimInstanceProxy.CachedbIsJumping);
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	return (IdleBreaks.Num() > 0) && !(Proxy.CachedbIsCrouching || Proxy.CachedbGameplayTagIsADS || Proxy.CachedbGameplayTagIsFiring || Proxy.CachedbIsAnyMontagePlaying || Proxy.CachedbHasVelocity || Proxy.CachedbIsJumping);
 }
 void UItemAnimLayerInstance::ResetIdleBreakTransitionLogic()
 {
-	LinkedAnimInstanceProxy.TimeUntilNextIdleBreak = LinkedAnimInstanceProxy.IdleBreakDelayTime;
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	Proxy.TimeUntilNextIdleBreak = Proxy.IdleBreakDelayTime;
 }
 void UItemAnimLayerInstance::ProcessIdleBreakTransitionLogic(float DeltaTime)
 {
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+
 	if (CanPlayIdleBreak())
-		LinkedAnimInstanceProxy.TimeUntilNextIdleBreak = LinkedAnimInstanceProxy.TimeUntilNextIdleBreak - DeltaTime;
+		Proxy.TimeUntilNextIdleBreak = Proxy.TimeUntilNextIdleBreak - DeltaTime;
 	else
 		ResetIdleBreakTransitionLogic();
 }
-UAnimSequence* UItemAnimLayerInstance::GetDesiredPivotSequence(ECardinalDirection InDirection) const
+UAnimSequence* UItemAnimLayerInstance::GetDesiredPivotSequence(ECardinalDirection InDirection)
 {
-	if (LinkedAnimInstanceProxy.CachedbIsCrouching)
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
+	if (Proxy.CachedbIsCrouching)
 	{
 		switch (InDirection)
 		{
@@ -588,7 +628,7 @@ UAnimSequence* UItemAnimLayerInstance::GetDesiredPivotSequence(ECardinalDirectio
 	}
 	else
 	{
-		if (LinkedAnimInstanceProxy.CachedbGameplayTagIsADS)
+		if (Proxy.CachedbGameplayTagIsADS)
 		{
 			switch (InDirection)
 			{
@@ -629,10 +669,11 @@ UAnimSequence* UItemAnimLayerInstance::GetDesiredPivotSequence(ECardinalDirectio
 }
 UAnimSequence* UItemAnimLayerInstance::SelectTurnInPlaceAnimation(float Direction)
 {
+	FLinkedAnimInstanceProxy& Proxy = GetProxyOnAnyThread<FLinkedAnimInstanceProxy>();
 	if (Direction > 0.0f)
-		return LinkedAnimInstanceProxy.CachedbIsCrouching ? CrouchTurnInPlaceRight : TurnInPlaceRight;
+		return Proxy.CachedbIsCrouching ? CrouchTurnInPlaceRight : TurnInPlaceRight;
 	else
-		return LinkedAnimInstanceProxy.CachedbIsCrouching ? CrouchTurnInPlaceLeft : TurnInPlaceLeft;
+		return Proxy.CachedbIsCrouching ? CrouchTurnInPlaceLeft : TurnInPlaceLeft;
 }
 
 //Getter functions
