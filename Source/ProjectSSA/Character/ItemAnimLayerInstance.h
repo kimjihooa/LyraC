@@ -253,7 +253,34 @@ protected:
 
 	//Getter functions
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	bool GetCrouchStateChanged() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
 	float GetHipFireUpperBodyOverrideWeight() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetAimOffsetBlendWeight() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetStrideWarpingStartAlpha() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetStrideWarpingCycleAlpha() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetStrideWarpingPivotAlpha() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetLeftHandOverrideWeight() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetHandFKWeight() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetHandIKLeftAlpha() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetHandIKRightAlpha() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetTimeUntilNextIdleBreak() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetLandRecoveryAlpha() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetTurnInPlaceAnimTime() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (BlueprintThreadSafe))
+	FVector GetPivotStartingAcceleration() const;
+
 
 	//Animation assets
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "AnimSet-Idle")

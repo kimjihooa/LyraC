@@ -281,25 +281,65 @@ public:
 	bool ShouldEnableControlRig();
 
 	//Getter functions
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	bool GetIsCrouching() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	bool GetCrouchStateChanged() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	bool GetADSStateChanged() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	bool GetIsOnGround() const;
 	bool GetIsMovingOnGround() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	bool GetIsJumping() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	bool GetIsFalling() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	bool GetHasVelocity() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	bool GetHasAcceleration() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	bool GetIsRunningIntoWall() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	bool GetGameplayTagIsFiring() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	bool GetGameplayTagIsMelee() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	bool GetLinkedLayerChanged() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	float GetDisplacementSpeed() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	float GetRootYawOffset() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	float GetGroundDistance() const;
 	float GetTimeSinceFiredWeapon() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	float GetLastPivotTime() const;
 	float GetDisplacementSinceLastUpdate() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetTimeToJumpApex() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetAimYaw() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetAimPitch() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetUpperBodyDynamicAdditiveWeight() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetAdditiveLeanAngle() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetLocalVelocityDirectionAngle() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	float GetLocalVelocityDirectionAngleWithOffset() const;
 	FVector GetWorldLocation() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	FVector GetLocalVelocty2D() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	FVector GetLocalAcceleration2D() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	ECardinalDirection GetLocalVelocityDirection() const;
 	ECardinalDirection GetLocalVelocityDirectionNoOffset() const;
 	ECardinalDirection GetCardinalDirectionFromAcceleration() const;
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	ECardinalDirection GetStartDirection() const;
 	void SetLastPivotTime();
 };

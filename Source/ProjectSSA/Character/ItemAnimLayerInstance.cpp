@@ -634,7 +634,61 @@ UAnimSequence* UItemAnimLayerInstance::SelectTurnInPlaceAnimation(float Directio
 	else
 		return LinkedAnimInstanceProxy.CachedbIsCrouching ? CrouchTurnInPlaceLeft : TurnInPlaceLeft;
 }
+
+//Getter functions
+bool UItemAnimLayerInstance::GetCrouchStateChanged() const
+{
+	return LinkedAnimInstanceProxy.CachedbCrouchStateChange;
+}
 float UItemAnimLayerInstance::GetHipFireUpperBodyOverrideWeight() const
 {
 	return LinkedAnimInstanceProxy.HipFireUpperBodyOverrideWeight;
+}
+float UItemAnimLayerInstance::GetAimOffsetBlendWeight() const
+{
+	return LinkedAnimInstanceProxy.AimOffsetBlendWeight;
+}
+float UItemAnimLayerInstance::GetStrideWarpingStartAlpha() const
+{
+	return LinkedAnimInstanceProxy.StrideWarpingStartAlpha;
+}
+float UItemAnimLayerInstance::GetStrideWarpingCycleAlpha() const
+{
+	return LinkedAnimInstanceProxy.StrideWarpingCycleAlpha;
+}
+float UItemAnimLayerInstance::GetStrideWarpingPivotAlpha() const
+{
+	return LinkedAnimInstanceProxy.StrideWarpingPivotAlpha;
+}
+float UItemAnimLayerInstance::GetLeftHandOverrideWeight() const
+{
+	return LinkedAnimInstanceProxy.LeftHandOverrideWeight;
+}
+float UItemAnimLayerInstance::GetHandFKWeight() const
+{
+	return LinkedAnimInstanceProxy.HandFKWeight;
+}
+float UItemAnimLayerInstance::GetHandIKLeftAlpha() const
+{
+	return LinkedAnimInstanceProxy.HandIKLeftAlpha;
+}
+float UItemAnimLayerInstance::GetHandIKRightAlpha() const
+{
+	return LinkedAnimInstanceProxy.HandIKRightAlpha;
+}
+float UItemAnimLayerInstance::GetTimeUntilNextIdleBreak() const
+{
+	return LinkedAnimInstanceProxy.TimeUntilNextIdleBreak;
+}
+float UItemAnimLayerInstance::GetLandRecoveryAlpha() const
+{
+	return LinkedAnimInstanceProxy.LandRecoveryAlpha;
+}
+float UItemAnimLayerInstance::GetTurnInPlaceAnimTime() const
+{
+	return LinkedAnimInstanceProxy.TurnInPlaceAnimTime;
+}
+FVector UItemAnimLayerInstance::GetPivotStartingAcceleration() const
+{
+	return LinkedAnimInstanceProxy.PivotStartingAcceleration;
 }

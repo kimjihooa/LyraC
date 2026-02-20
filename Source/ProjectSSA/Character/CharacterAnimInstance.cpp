@@ -374,6 +374,14 @@ bool UCharacterAnimInstance::GetCrouchStateChanged() const
 {
 	return MainAnimInstanceProxy.bCrouchStateChange;
 }
+bool UCharacterAnimInstance::GetADSStateChanged() const
+{
+	return MainAnimInstanceProxy.bADSStateChanged;
+}
+bool UCharacterAnimInstance::GetIsOnGround() const
+{
+	return MainAnimInstanceProxy.bIsOnGround;
+}
 bool UCharacterAnimInstance::GetIsMovingOnGround() const
 {
 	return MainAnimInstanceProxy.CachedIsMovingOnGround;
@@ -397,6 +405,18 @@ bool UCharacterAnimInstance::GetHasAcceleration() const
 bool UCharacterAnimInstance::GetIsRunningIntoWall() const
 {
 	return MainAnimInstanceProxy.bIsRunningIntoWall;
+}
+bool UCharacterAnimInstance::GetGameplayTagIsFiring() const
+{
+	return MainAnimInstanceProxy.bGameplayTagIsFiring;
+}
+bool UCharacterAnimInstance::GetGameplayTagIsMelee() const
+{
+	return MainAnimInstanceProxy.bGameplayTagIsMelee;
+}
+bool UCharacterAnimInstance::GetLinkedLayerChanged() const
+{
+	return MainAnimInstanceProxy.bLinkedLayerChanged;
 }
 float UCharacterAnimInstance::GetDisplacementSpeed() const
 {
@@ -422,6 +442,34 @@ float UCharacterAnimInstance::GetDisplacementSinceLastUpdate() const
 {
 	return MainAnimInstanceProxy.DisplacementSinceLastUpdate;
 }
+float UCharacterAnimInstance::GetTimeToJumpApex() const
+{
+	return MainAnimInstanceProxy.TimeToJumpApex;
+}
+float UCharacterAnimInstance::GetAimYaw() const
+{
+	return MainAnimInstanceProxy.AimYaw;
+}
+float UCharacterAnimInstance::GetAimPitch() const
+{
+	return MainAnimInstanceProxy.AimPitch;
+}
+float UCharacterAnimInstance::GetUpperBodyDynamicAdditiveWeight() const
+{
+	return MainAnimInstanceProxy.UpperbodyDynamicAdditiveWeight;
+}
+float UCharacterAnimInstance::GetAdditiveLeanAngle() const
+{
+	return MainAnimInstanceProxy.AdditiveLeanAngle;
+}
+float UCharacterAnimInstance::GetLocalVelocityDirectionAngle() const
+{
+	return MainAnimInstanceProxy.LocalVelocityDirectionAngle;
+}
+float UCharacterAnimInstance::GetLocalVelocityDirectionAngleWithOffset() const
+{
+	return MainAnimInstanceProxy.LocalVelocityDirectionAngleWithOffset;
+}
 FVector UCharacterAnimInstance::GetWorldLocation() const
 {
 	return MainAnimInstanceProxy.WorldLocation;
@@ -445,6 +493,10 @@ ECardinalDirection UCharacterAnimInstance::GetLocalVelocityDirectionNoOffset() c
 ECardinalDirection UCharacterAnimInstance::GetCardinalDirectionFromAcceleration() const
 {
 	return MainAnimInstanceProxy.CardinalDirectionFromAcceleration;
+}
+ECardinalDirection UCharacterAnimInstance::GetStartDirection() const
+{
+	return MainAnimInstanceProxy.StartDirection;
 }
 void UCharacterAnimInstance::SetLastPivotTime()
 {
