@@ -246,11 +246,11 @@ protected:
 	//Bools
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsFirstUpdate = true;
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bEnableRootYawOffset = true;
-	UPROPERTY(BlueprintReadOnly, meta = (BlueprintThreadSafe))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (BlueprintThreadSafe))
 	bool bEnableControlRig = false;
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bUseFootPlacement = false;
 
 	//Node binding functions
