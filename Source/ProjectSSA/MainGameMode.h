@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Camera/CameraComponent.h"
 #include "Character/MainCharacter.h"
 #include "MainGameMode.generated.h"
 
